@@ -1,0 +1,7 @@
+node_modules
+dist
+.env
+.env.local
+# raw AI art (large); web versions are in public/assets, made by scripts/process-art.py
+art-source
+tsconfig.tsbuildinfo

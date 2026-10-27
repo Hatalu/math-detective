@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html { -webkit-text-size-adjust: 100%; }
+body { @apply bg-navy font-sans text-base antialiased; }
+:focus-visible { outline: 4px solid #FCA311; outline-offset: 2px; }
+
+.paper { background: #FFF8E8 radial-gradient(circle at 20% 0%, #fff 0%, transparent 50%); }
+.paper-dark { background: radial-gradient(ellipse at 30% 0%, #263C68, #14213D 60%); }
+
+/* rain streaks on the window (pure CSS layer) */
+.rain {
+  background-image: repeating-linear-gradient(105deg, transparent 0 14px, rgba(200,220,255,.18) 14px 15px);
+  background-size: 120px 120px;
+  animation: rain .5s linear infinite;
+}
+@keyframes rain { to { background-position: -30px 120px; } }
+
+/* floating dust motes in the lamp light */
+.dust span { position: absolute; width: 3px; height: 3px; border-radius: 9999px; background: rgba(255,231,163,.7); animation: dust 9s ease-in-out infinite; }
+@keyframes dust { 0%,100% { transform: translate(0,0); opacity: 0; } 30% { opacity: .9; } 50% { transform: translate(18px,-26px); } 80% { opacity: .5; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rain, .dust span { animation: none; }
+}
+.no-motion .rain, .no-motion .dust span { animation: none; }
