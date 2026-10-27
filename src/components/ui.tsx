@@ -4,6 +4,7 @@ import { ArrowLeft, Database, Loader2, Settings as Gear, Wifi, WifiOff, AlertTri
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../lib/settings';
 import { sfx } from '../lib/sound';
+import { asset, Art, useHasAsset } from './art';
 
 type Variant = 'gold' | 'navy' | 'ghost' | 'teal' | 'danger';
 const V: Record<Variant, string> = {
@@ -14,11 +15,16 @@ const V: Record<Variant, string> = {
   ghost: 'bg-white/10 text-current ring-1 ring-current/30 hover:bg-white/20',
 };
 
-export function Btn({ variant = 'gold', className = '', onClick, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+const PLATE: Partial<Record<Variant, string>> = { gold: 'ui-btn-gold.webp', navy: 'ui-btn-navy.webp', teal: 'ui-btn-teal.webp', danger: 'ui-btn-red.webp' };
+
+export function Btn({ variant = 'gold', className = '', onClick, style, ...p }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
   const { s } = useSettings();
+  const plate = PLATE[variant] ?? '';
+  const art = useHasAsset(plate);
   return (
     <button
       {...p}
+      style={art ? { ...style, backgroundImage: `url(${asset(plate)})`, backgroundSize: '100% 100%', backgroundColor: 'transparent', boxShadow: 'none' } : style}
       onClick={(e) => { sfx('click', s.muted); onClick?.(e); }}
       className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl px-5 py-2.5 font-semibold transition active:translate-y-[2px] active:shadow-none disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-gold ${V[variant]} ${className}`}
     />
@@ -81,8 +87,11 @@ export function SetupRequired() {
 
 export function Page({ title, back, children, dark = false, right }: { title: string; back?: string; children: ReactNode; dark?: boolean; right?: ReactNode }) {
   const nav = useNavigate();
+  const tex = dark ? 'ui-navy.webp' : 'ui-paper.webp';
+  const hasTex = useHasAsset(tex);
   return (
-    <div className={`min-h-dvh ${dark ? 'paper-dark text-cream' : 'paper text-navy'}`}>
+    <div className={`min-h-dvh ${dark ? 'paper-dark text-cream' : 'paper text-navy'}`}
+      style={hasTex ? { backgroundImage: `linear-gradient(${dark ? 'rgba(20,33,61,.75)' : 'rgba(255,248,232,.85)'}, ${dark ? 'rgba(20,33,61,.75)' : 'rgba(255,248,232,.85)'}), url(${asset(tex)})`, backgroundSize: 'auto, 480px' } : undefined}>
       <header className={`sticky top-0 z-30 flex items-center gap-2 px-3 py-2 backdrop-blur sm:px-6 ${dark ? 'bg-navy/80' : 'bg-cream/85 shadow-sm'}`}>
         <button onClick={() => (back ? nav(back) : nav(-1))} className="grid h-11 w-11 place-items-center rounded-full hover:bg-black/10 focus-visible:outline focus-visible:outline-4 focus-visible:outline-gold" aria-label="ย้อนกลับ">
           <ArrowLeft aria-hidden />
@@ -96,8 +105,11 @@ export function Page({ title, back, children, dark = false, right }: { title: st
   );
 }
 
-export const Card = ({ children, className = '' }: { children: ReactNode; className?: string }) =>
-  <section className={`rounded-2xl bg-white p-4 text-navy shadow-md ring-1 ring-navy/5 sm:p-5 ${className}`}>{children}</section>;
+export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+  const hasTex = useHasAsset('ui-paper.webp');
+  return <section style={hasTex ? { backgroundImage: `linear-gradient(rgba(255,255,255,.72), rgba(255,255,255,.72)), url(${asset('ui-paper.webp')})`, backgroundSize: 'auto, 480px' } : undefined}
+    className={`rounded-2xl bg-white p-4 text-navy shadow-md ring-1 ring-navy/5 sm:p-5 ${className}`}>{children}</section>;
+}
 
 export const Field = ({ label, children }: { label: string; children: ReactNode }) =>
   <label className="block"><span className="mb-1 block text-sm font-semibold">{label}</span>{children}</label>;

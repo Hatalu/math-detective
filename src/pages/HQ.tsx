@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { BookOpen, Film, QrCode, Settings, ShieldCheck } from 'lucide-react';
 import { HQScene } from '../components/cinema';
+import { Art } from '../components/art';
 import { Cody, OutlierShadow } from '../components/characters';
 import { supabase } from '../lib/supabase';
 
@@ -19,6 +20,7 @@ export default function HQ() {
       <div className="fixed inset-0"><HQScene camX={-30} /></div>
       <div className="relative z-10 mx-auto flex min-h-dvh max-w-6xl flex-col justify-center gap-6 px-4 py-8 sm:px-8 lg:flex-row lg:items-center">
         <div className="lg:w-1/2">
+          <Art file="ui-logo.webp" className="mb-2 h-20 w-20 object-contain drop-shadow-lg" />
           <p className="tracking-[.3em] text-gold">DETECTIVE HQ</p>
           <h1 className="mb-2 text-4xl font-bold drop-shadow-lg sm:text-5xl">สำนักงานนักสืบ<br />แห่งนครข้อมูล</h1>
           <p className="max-w-md text-lg opacity-90">เลือกภารกิจของคุณ นักสืบฝึกหัด</p>

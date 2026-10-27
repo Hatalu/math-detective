@@ -304,3 +304,100 @@ camera slowly pulls back and rises to a wide shot of the city
 - ภาพตัวละครและไอเทมต้องเป็น **พื้นโปร่งใส** ไม่งั้นจะเห็นกรอบขาวในเกม
 - ไฟล์ไหนไม่มี เกมใช้ภาพวาดโค้ดเดิมแทน ไม่พัง
 - ถ้าปิด "แอนิเมชัน" ในหน้าตั้งค่า เกมจะไม่เล่นคลิป
+
+---
+
+## F. UI / UX
+
+แบ่ง 2 ส่วน:
+- **F1 ภาพม็อกอัปหน้าจอ** ใช้เป็นแบบอ้างอิงเท่านั้น โค้ดจะสร้าง UI ให้หน้าตาเหมือนภาพ ไม่ได้เอาภาพไปแปะ เพราะข้อความและปุ่มต้องกดได้ เปลี่ยนข้อมูลได้ และอ่านภาษาไทยได้ชัด
+- **F2 ชิ้นส่วน UI** เป็นภาพที่เกมนำไปใช้จริง เช่น กรอบ พื้นผิว และไอคอน บันทึกไว้ที่ `art-source/ui/`
+
+**UI STYLE (ต่อท้ายทุก prompt ในหมวด F แทน STYLE ปกติ):**
+```
+game UI design in Thai children's comic-book detective style, bold black ink outlines, halftone dot shading,
+paper textures (manila folder, old document, sticky note, cork board), deep navy #0B1B3F background,
+gold #F5C04A primary buttons with thick dark outline and drop shadow, teal and crimson accents, cream panels,
+rounded friendly shapes, large touch targets, high contrast, clean readable layout, flat vector UI elements
+```
+
+### F1 ม็อกอัปหน้าจอ (แบบอ้างอิง)
+
+ข้อความในภาพจะเป็นตัวอักษรมั่วไม่เป็นไร ให้ดูแค่การจัดวาง สี และกรอบ
+มือถือใช้สัดส่วน 9:16, iPad และโปรเจกเตอร์ใช้ 16:9
+
+**F1-1 หน้าสำนักงานนักสืบ / เมนูหลัก (16:9 และ 9:16)**
+```
+main menu screen of a detective game, background is a night detective office, center shows a manila case folder
+used as the menu panel, three big stacked gold buttons on the folder, a small owl mascot peeking from the corner,
+settings gear icon top-right, title logo area at the top
+```
+
+**F1-2 หน้าเข้าห้อง (นักเรียน มือถือ 9:16)**
+```
+mobile join screen, a detective ID card shaped panel in the middle, one large input box for a 6-digit room code
+in big monospace digits, input for team name, one big gold "join" button, QR scan icon button, rainy navy background
+```
+
+**F1-3 หน้าสืบคดี (มือถือ 9:16)**
+```
+mobile investigation screen, top bar with case number tag, timer pill and score badge, below it a mission brief
+on an old paper card, then a 2-column grid of evidence cards styled as document, photo, receipt and sticky note
+with paper clips and pins, a hint bar with three key icons (bronze, silver, gold), sticky bottom gold action button
+```
+
+**F1-4 หน้าส่งคำตอบ (มือถือ 9:16)**
+```
+mobile answer form on a detective case report sheet, segmented choice chips for mean, median and mode,
+a big number input, a lined notebook textarea for reasoning, a red wax seal style submit button
+```
+
+**F1-5 หน้าล็อบบี้ / จอโปรเจกเตอร์ (16:9)**
+```
+projector lobby screen, left side large QR code inside a polaroid frame with room code in huge digits,
+right side a cork board where joined team cards are pinned with colorful pins, status banner at the top
+```
+
+**F1-6 กระดานคะแนน (16:9)**
+```
+leaderboard screen styled as a police wanted-board, ranked team cards pinned on cork, top 3 with gold, silver,
+bronze star badges, animated score numbers, confetti accents
+```
+
+**F1-7 แดชบอร์ดครู (iPad 16:9)**
+```
+teacher control dashboard for a classroom game, clean and calm version of the comic style, left sidebar of missions
+as folder tabs, center live team status table on cream paper, right panel with big control buttons
+start, pause, next mission, reveal answer, top bar with room code and timer
+```
+
+**F1-8 แกลเลอรีผลงาน (16:9)**
+```
+gallery screen, student work photos displayed as polaroids pinned on a cork board, approve and hide buttons
+as small stamp icons, upload button styled as a camera
+```
+
+### F2 ชิ้นส่วน UI (เกมใช้จริง) — พื้นโปร่งใส ยกเว้นพื้นผิว
+
+| ไฟล์ | ใช้ทำ | prompt |
+|---|---|---|
+| `ui-paper.webp` | พื้นผิวการ์ด/แผงข้อมูล (ต่อลายได้) | `seamless tileable old cream paper texture, subtle fibers and halftone, no objects, square` |
+| `ui-cork.webp` | พื้นผิวบอร์ดล็อบบี้/คะแนน (ต่อลายได้) | `seamless tileable cork board texture, warm brown, square` |
+| `ui-navy.webp` | พื้นหลังหน้าทั่วไป (ต่อลายได้) | `seamless tileable deep navy background with faint halftone dots and soft rain streaks, square` |
+| `ui-folder.webp` | กรอบแผงหลัก | `empty open manila case folder seen from the front, flat, wide, large empty paper area in the middle` |
+| `ui-idcard.webp` | กรอบหน้าเข้าห้อง | `empty detective ID card frame, rounded corners, photo slot on the left, blank area on the right` |
+| `ui-polaroid.webp` | กรอบ QR / ภาพผลงาน | `empty polaroid frame with a paper clip on top, blank white photo area` |
+| `ui-tag.webp` | ป้ายเลขคดี | `blank brown cardboard luggage tag with string, horizontal` |
+| `ui-pin-red.webp`, `ui-pin-teal.webp`, `ui-pin-gold.webp` | หมุดปักการ์ด | `single round push pin, top view, {red / teal / gold}` |
+| `ui-tape.webp` | เทปติดมุมการ์ด | `single strip of translucent masking tape, slightly torn ends` |
+| `ui-seal.webp` | ปุ่มส่งคำตอบ | `blank red wax seal, round, empty center` |
+| `ui-medal-1.webp`, `ui-medal-2.webp`, `ui-medal-3.webp` | อันดับ 1–3 | `blank star badge medal, {gold / silver / bronze}, no numbers` |
+| `ui-timer.webp` | ไอคอนเวลา | `cartoon pocket watch icon` |
+| `ui-icon-mean.webp`, `ui-icon-median.webp`, `ui-icon-mode.webp` | ไอคอนค่ากลาง | `icon of a balance scale` / `icon of number cards in a row with the middle one glowing` / `icon of a tall stack of identical cards` |
+| `ui-logo.webp` | โลโก้เกม (ไม่มีตัวหนังสือ) | `emblem logo of a magnifying glass over a bar chart inside a detective badge, no text` |
+
+### ข้อควรรู้
+- **ห้ามให้ AI ใส่ตัวหนังสือไทย** ในชิ้นส่วน F2 เพราะมักเพี้ยน ข้อความทุกตัวใส่ด้วยโค้ด
+- ปุ่มทั่วไปทำด้วย CSS ไม่ใช้ภาพ จะคมทุกขนาดจอ และรองรับสถานะกด / ปิดใช้งาน / โฟกัสคีย์บอร์ด
+- พื้นผิว (`ui-paper`, `ui-cork`, `ui-navy`) ต้องต่อลายได้ (seamless) ขนาด 512×512 พอ
+- ทำเสร็จแล้ววางที่ `art-source/ui/` แล้วแจ้งผม ผมจะเพิ่มขั้นตอนแปลงไฟล์ในสคริปต์ และต่อเข้าหน้าจอให้

@@ -94,7 +94,7 @@ export function Investigation({ q, draftKey, hints, onRevealHint, onSubmit, lock
           ))}
         </ol>
         {progressLabel && <span className="text-sm opacity-70">{progressLabel}</span>}
-        {remaining !== null && <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-num font-bold ${remaining < 60 ? 'bg-alert/15 text-alert' : 'bg-navy/10'}`}><Timer size={16} aria-hidden /> {fmtTime(remaining)}</span>}
+        {remaining !== null && <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-num font-bold ${remaining < 60 ? 'bg-alert/15 text-alert' : 'bg-navy/10'}`}><Art file="ui-timer.webp" className="h-5 w-5 object-contain" fallback={<Timer size={16} aria-hidden />} /> {fmtTime(remaining)}</span>}
         {score !== undefined && <span className="rounded-full bg-gold/25 px-3 py-1 font-bold">คะแนนทีม {score}</span>}
       </div>
 
@@ -164,7 +164,7 @@ export function Investigation({ q, draftKey, hints, onRevealHint, onSubmit, lock
                     disabled={q.target !== 'choose' && q.target !== m}
                     onClick={() => setMeasure(m)}
                     className={`min-h-[48px] rounded-xl border-2 px-3 font-semibold disabled:opacity-30 ${measure === m ? 'border-gold bg-gold/20' : 'border-navy/15'}`}>
-                    {MEASURE_TH[m]}
+                    <span className="inline-flex items-center justify-center gap-2"><Art file={`ui-icon-${m}.webp`} className="h-7 w-7 object-contain" />{MEASURE_TH[m]}</span>
                   </button>
                 ))}
               </div>

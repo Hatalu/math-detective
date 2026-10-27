@@ -1,6 +1,6 @@
 """Convert raw AI art in art-source/ into web-ready files in public/assets/.
 
-art-source/{bg,char,item,video}/<name>.<jfif|jpg|png|mp4>  ->  public/assets/<same folder>/<name>.webp|.mp4
+art-source/{bg,char,item,ui,video}/<name>.<jfif|jpg|png|mp4>  ->  public/assets/<same folder>/<name>.webp|.mp4
 - bg:    resize to 1920 wide, webp
 - char:  remove white background, keep only the biggest pose of a character sheet, webp with alpha
 - item:  remove white background, trim, 384 px, webp with alpha
@@ -60,6 +60,13 @@ for f in sorted(SRC.glob(f'{only}/*')):
         save(main_pose(cut_white(Image.open(f))), dest, 900)
     elif kind == 'item':
         save(cut_white(Image.open(f)), dest, 384)
+    elif kind == 'ui':  # tileable textures keep their full frame; everything else loses the white background
+        save(Image.open(f).convert('RGB') if f.stem in ('ui-paper', 'ui-cork', 'ui-navy') else cut_white(Image.open(f)), dest, 512)
+    elif kind == 'ui-sheet':  # one sheet of 5 stacked buttons -> ui-btn-{gold,navy,teal,red,cream}
+        im = cut_white(Image.open(f)); lab, n = ndimage.label(np.asarray(im.getchannel('A')) > 40)
+        boxes = sorted(ndimage.find_objects(lab), key=lambda b: b[0].start)
+        for name, (ys, xs) in zip(['gold', 'navy', 'teal', 'red', 'cream'], boxes[:5]):
+            save(im.crop((xs.start, ys.start, xs.stop, ys.stop)), OUT / 'ui' / f'ui-btn-{name}', 768)
     else:
         continue
     print('ok', f.relative_to(SRC))
