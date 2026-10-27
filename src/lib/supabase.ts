@@ -1,7 +1,9 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// Project URL + anon (public) key are safe to ship: every browser receives them anyway and RLS guards the data.
+// Never put the service_role key here. Env vars override these (e.g. for a test project).
+const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined) || 'https://nuzopewpmnrerjddvrqz.supabase.co';
+const key = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51em9wZXdwbW5yZXJqZGR2cnF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMxMTU4MTEsImV4cCI6MjEwODY5MTgxMX0.uiZAttuZWs5qKqw7_GoZy5J-FK8tZhClOEIEvGbBP68';
 
 /** null = backend not configured → pages show "Setup Required" instead of fake data. */
 export const supabase: SupabaseClient | null = url && key ? createClient(url, key) : null;

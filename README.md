@@ -14,7 +14,8 @@ React + TypeScript + Vite + Tailwind + Framer Motion + Supabase (Auth, Postgres,
 |---|---|
 | Intro / Cutscene / Animation / โหมดฝึก 8 คดี | ใช้งานได้ทันที ไม่ต้องมีฐานข้อมูล (ทดสอบในเบราว์เซอร์แล้ว) |
 | Math engine + คลังคดี | มี unit test 15 ข้อ (`npm test`) ตรวจว่าเฉลยทุกคดีตรงกับข้อมูล |
-| ห้องเรียนหลายทีม, Realtime, คะแนน, Gallery, Exit Ticket, Question Editor | โค้ดและ SQL ครบ **แต่ยังไม่ได้ทดสอบกับ Supabase จริง** ต้องตั้งค่าตามขั้นตอนด้านล่าง แล้วทำ “รายการตรวจสอบ End-to-End” ให้ผ่านก่อนใช้สอนจริง |
+| ห้องเรียนหลายทีม, Realtime, คะแนน, Gallery, Exit Ticket, Question Editor | เชื่อม Supabase โปรเจกต์ `nuzopewpmnrerjddvrqz` แล้ว (รัน schema, เปิด anonymous sign-in) ทดสอบแล้วเฉพาะนักเรียน sign-in + RPC `room_status` **ยังไม่ได้ทดสอบฝั่งครูและ Realtime** ต้องสร้างบัญชีครูก่อน (ดูหัวข้อสร้างบัญชีครู) |
+| ค้นหาข้อมูลในฉาก (Hidden-object) | แต่ละคดีไม่บอกตัวเลข นักเรียนต้องแตะหาไอเทมที่ซ่อนในภาพฉากให้ครบก่อนโจทย์จะขึ้น ตำแหน่งเหมือนกันทุกเครื่อง |
 
 ถ้ายังไม่ได้ตั้งค่า Supabase เว็บจะแสดง “ต้องตั้งค่าฐานข้อมูลก่อน (Setup Required)” และไม่แสดงข้อมูลจำลอง
 

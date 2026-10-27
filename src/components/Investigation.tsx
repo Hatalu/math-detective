@@ -8,6 +8,7 @@ import { sfx } from '../lib/sound';
 import { Btn, Card, ErrorBox, inputCls } from './ui';
 import { DataSortingAnimation } from './mathviz';
 import { Art } from './art';
+import { SceneHunt } from './SceneHunt';
 import { CinematicSequence, DialogueBox, EvidenceReveal, MagnifyingGlass } from './cinema';
 
 export interface HintState { levels: { level: number; body: string }[]; enabled: boolean; penalty: number }
@@ -82,6 +83,8 @@ export function Investigation({ q, draftKey, hints, onRevealHint, onSubmit, lock
 
   const remaining = useCountdown(deadline ?? null);
   const step = locked ? 4 : measure && (valueText || noMode) ? 3 : inspected.length ? 2 : 1;
+  const [hunted, setHunted] = useDraft(draftKey + ':hunted', false);
+  if (!hunted && !locked) return <SceneHunt q={q} draftKey={draftKey} onDone={() => setHunted(true)} />;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
