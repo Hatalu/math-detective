@@ -85,14 +85,16 @@ export function SetupRequired() {
   );
 }
 
-export function Page({ title, back, children, dark = false, right }: { title: string; back?: string; children: ReactNode; dark?: boolean; right?: ReactNode }) {
+/** full = one screen, no page scroll, paper background; children must manage their own inner scroll. */
+export function Page({ title, back, children, dark = false, right, full = false }: { title: string; back?: string; children: ReactNode; dark?: boolean; right?: ReactNode; full?: boolean }) {
   const nav = useNavigate();
   const tex = dark ? 'ui-navy.webp' : 'ui-paper.webp';
   const hasTex = useHasAsset(tex);
   return (
-    <div className={`min-h-dvh ${dark ? 'paper-dark text-cream' : 'paper text-navy'}`}
-      style={hasTex ? { backgroundImage: `linear-gradient(${dark ? 'rgba(20,33,61,.75)' : 'rgba(255,248,232,.85)'}, ${dark ? 'rgba(20,33,61,.75)' : 'rgba(255,248,232,.85)'}), url(${asset(tex)})`, backgroundSize: 'auto, 480px' } : undefined}>
-      <header className={`sticky top-0 z-30 flex items-center gap-2 px-3 py-2 backdrop-blur sm:px-6 ${dark ? 'bg-navy/80' : 'bg-cream/85 shadow-sm'}`}>
+    <div className={`${full ? 'flex h-dvh flex-col overflow-hidden bg-cover bg-center' : 'min-h-dvh'} ${dark ? 'paper-dark text-cream' : 'paper text-navy'}`}
+      style={full ? { backgroundImage: `url(${asset('paper-bg.webp')})` }
+        : hasTex ? { backgroundImage: `linear-gradient(${dark ? 'rgba(20,33,61,.75)' : 'rgba(255,248,232,.85)'}, ${dark ? 'rgba(20,33,61,.75)' : 'rgba(255,248,232,.85)'}), url(${asset(tex)})`, backgroundSize: 'auto, 480px' } : undefined}>
+      <header className={`sticky top-0 z-30 flex shrink-0 items-center gap-2 px-3 py-2 backdrop-blur sm:px-6 ${dark ? 'bg-navy/80' : 'bg-cream/85 shadow-sm'}`}>
         <button onClick={() => (back ? nav(back) : nav(-1))} className="grid h-11 w-11 place-items-center rounded-full hover:bg-black/10 focus-visible:outline focus-visible:outline-4 focus-visible:outline-gold" aria-label="ย้อนกลับ">
           <ArrowLeft aria-hidden />
         </button>
@@ -100,7 +102,7 @@ export function Page({ title, back, children, dark = false, right }: { title: st
         {right}
         <Link to="/settings" aria-label="ตั้งค่า" className="grid h-11 w-11 place-items-center rounded-full hover:bg-black/10"><Gear aria-hidden /></Link>
       </header>
-      <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6">{children}</main>
+      <main className={full ? 'min-h-0 flex-1' : 'mx-auto w-full max-w-6xl px-4 py-5 sm:px-6'}>{children}</main>
     </div>
   );
 }

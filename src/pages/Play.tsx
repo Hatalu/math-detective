@@ -79,9 +79,10 @@ export default function Play() {
   const deadline = g?.question_started_at && g.time_limit_sec ? new Date(g.question_started_at).getTime() + g.time_limit_sec * 1000 : null;
   const header = <div className="flex items-center gap-2"><span className="hidden font-semibold sm:inline">{team?.team_name}</span><ConnectionBadge realtime={rt} /></div>;
 
+  const playing = !!g && !!q && !['waiting', 'completed'].includes(g.status);
   return (
-    <Page title={g?.title ?? 'ห้องสืบสวน'} back="/hq" right={header}>
-      {err && <div className="mb-4"><ErrorBox msg={err} onRetry={load} /></div>}
+    <Page full={playing} title={g?.title ?? 'ห้องสืบสวน'} back="/hq" right={header}>
+      {err && <div className={playing ? 'p-2' : 'mb-4'}><ErrorBox msg={err} onRetry={load} /></div>}
       {!g ? <Spinner /> : g.status === 'waiting' ? (
         <Card className="mx-auto max-w-md text-center">
           <div className="mx-auto h-28 w-28"><Cody /></div>
@@ -98,23 +99,26 @@ export default function Play() {
           </div>
         </Card>
       ) : !q ? <Empty>ครูยังไม่ได้ใส่โจทย์ในชุดนี้</Empty> : (
-        <>
-          {g.status === 'paused' && <p className="mb-4 flex items-center gap-2 rounded-xl bg-gold/30 p-3 font-semibold"><PauseCircle aria-hidden /> ครูพักเกมชั่วคราว คุณยังอ่านหลักฐานได้ แต่ส่งคำตอบไม่ได้</p>}
-          <Investigation key={q.id} q={q.content} draftKey={`${sid}:${q.id}`}
-            hints={{ levels: hints, enabled: g.hints_enabled, penalty: g.hint_penalty }}
-            onRevealHint={async (lv) => { try { setHints(await revealHint(sid, lv)); } catch (e) { throw new Error(thaiError(e)); } }}
-            onSubmit={submit}
-            locked={!!sub || g.status !== 'active'}
-            lockMsg={sub ? 'ทีมส่งรายงานแล้ว (ระบบยืนยันแล้ว) รอครูเปิดเฉลยหรือภารกิจถัดไป' : g.status === 'reviewing' ? 'ปิดรับคำตอบแล้ว ช่วงเฉลย' : 'ยังไม่เปิดรับคำตอบ'}
-            deadline={g.status === 'active' ? deadline : null}
-            progressLabel={`ภารกิจ ${g.current_index + 1}/${qs.length}`} />
-          {fb ? <div className="mt-6"><CaseReport fb={fb} data={q.content.data} unit={q.content.unit} /></div>
-            : reveal && <div className="mt-6"><CaseReport fb={{ ...reveal, correct: false, scores: { accuracy: 0, method: 0, reasoning: 0, communication: 0, speed: 0, penalty: 0, total: 0 } }} data={q.content.data} unit={q.content.unit} /></div>}
+        <div className="flex h-full flex-col">
+          {g.status === 'paused' && <p className="m-2 mb-0 flex shrink-0 items-center gap-2 rounded-xl bg-gold/40 p-2 font-semibold"><PauseCircle aria-hidden /> ครูพักเกมชั่วคราว คุณยังอ่านหลักฐานได้ แต่ส่งคำตอบไม่ได้</p>}
+          <div className="min-h-0 flex-1">
+            <Investigation key={q.id} q={q.content} draftKey={`${sid}:${q.id}`}
+              hints={{ levels: hints, enabled: g.hints_enabled, penalty: g.hint_penalty }}
+              onRevealHint={async (lv) => { try { setHints(await revealHint(sid, lv)); } catch (e) { throw new Error(thaiError(e)); } }}
+              onSubmit={submit}
+              locked={!!sub || g.status !== 'active'}
+              lockMsg={sub ? 'ทีมส่งรายงานแล้ว (ระบบยืนยันแล้ว) รอครูเปิดเฉลยหรือภารกิจถัดไป' : g.status === 'reviewing' ? 'ปิดรับคำตอบแล้ว ช่วงเฉลย' : 'ยังไม่เปิดรับคำตอบ'}
+              deadline={g.status === 'active' ? deadline : null}
+              progressLabel={`ภารกิจ ${g.current_index + 1}/${qs.length}`}>
+              {fb ? <CaseReport fb={fb} data={q.content.data} unit={q.content.unit} />
+                : reveal ? <CaseReport fb={{ ...reveal, correct: false, scores: { accuracy: 0, method: 0, reasoning: 0, communication: 0, speed: 0, penalty: 0, total: 0 } }} data={q.content.data} unit={q.content.unit} /> : undefined}
+            </Investigation>
+          </div>
           <AnimatePresence>
             {scene === 'open' && <CaseOpenCutscene code={q.content.code} title={q.content.title} objective={q.content.objective} onDone={() => setScene(null)} />}
             {scene === 'result' && fb && <ResultCutscene fb={fb} unit={q.content.unit} onDone={() => setScene(null)} />}
           </AnimatePresence>
-        </>
+        </div>
       )}
     </Page>
   );

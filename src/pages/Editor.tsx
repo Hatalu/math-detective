@@ -240,7 +240,7 @@ function Preview({ q, onClose }: { q: CaseQuestion; onClose: () => void }) {
       <div className="mb-3 flex items-center gap-2"><h2 className="flex-1 text-xl font-bold">Preview (ไม่บันทึกผล)</h2><Btn variant="navy" onClick={onClose}><X aria-hidden /> ปิด</Btn></div>
       {res && <p className="mb-3 rounded-lg bg-gold/30 p-2">{res}</p>}
       <Investigation q={q} draftKey={dk} hints={{ levels: q.clues.slice(0, lv).map((c, i) => ({ level: i + 1, body: fillTemplate(c, q.data) })), enabled: true, penalty: 5 }}
-        onRevealHint={async (l) => setLv(l)} locked={false}
+        onRevealHint={async (l) => setLv(l)} locked={false} hunt={false}
         onSubmit={async (a) => { const k = answerKey(q); setRes(`ส่งทดสอบ: เลือก ${a.measure ? MEASURE_TH[a.measure] : '-'} = ${a.noMode ? 'ไม่มีฐานนิยม' : a.values.join(', ')} · เฉลย ${MEASURE_TH[k.measure]} = ${k.noMode ? 'ไม่มีฐานนิยม' : k.values.map(fmt).join(', ')}`); }} />
     </div>
   );

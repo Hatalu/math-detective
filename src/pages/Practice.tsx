@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { CheckCircle2, ChevronRight } from 'lucide-react';
-import { Btn, Card, Page } from '../components/ui';
+import { Btn, Page } from '../components/ui';
 import { Investigation, type HintState } from '../components/Investigation';
 import { CaseOpenCutscene, CaseReport, FinalCutscene, ResultCutscene, type Feedback } from '../components/CaseResult';
 import { DEFAULT_CASES, answerKey } from '../lib/cases';
@@ -62,25 +62,25 @@ export default function Practice() {
   const goNext = () => { setHintLevel(0); setScene('open'); nav(last ? '/practice' : `/practice/${i + 1}`); };
 
   return (
-    <Page title={`${q.code} · ${q.title}`} back="/practice" right={<span className="hidden text-sm sm:inline">โหมดฝึก (ไม่บันทึกผล)</span>}>
+    <Page full title={`${q.code} · ${q.title}`} back="/practice" right={<span className="hidden text-sm sm:inline">โหมดฝึก (ไม่บันทึกผล)</span>}>
       <Investigation key={i} q={q} draftKey={`practice:${i}`} hints={hints} score={total}
         onRevealHint={async (lv) => setHintLevel(lv)} onSubmit={submit}
-        locked={!!fb} lockMsg="ส่งรายงานคดีนี้แล้ว" progressLabel={`คดี ${i + 1}/${DEFAULT_CASES.length}`} />
-      {fb && (
-        <div className="mt-6 space-y-4">
-          <CaseReport fb={fb} data={q.data} unit={q.unit} />
-          <div className="flex flex-wrap gap-2">
-            <Btn onClick={() => (last ? setScene('final') : goNext())}>{last ? 'สรุปผลคดีทั้งหมด' : 'คดีถัดไป'} <ChevronRight aria-hidden /></Btn>
-            <Btn variant="navy" onClick={() => { const n = { ...saved }; delete n[i]; setSaved(n); sessionStorage.setItem(KEY, JSON.stringify(n)); setHintLevel(0); }}>ลองคดีนี้ใหม่</Btn>
+        locked={!!fb} lockMsg="ส่งรายงานคดีนี้แล้ว" progressLabel={`คดี ${i + 1}/${DEFAULT_CASES.length}`}>
+        {fb && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Btn onClick={() => (last ? setScene('final') : goNext())}>{last ? 'สรุปผลคดีทั้งหมด' : 'คดีถัดไป'} <ChevronRight aria-hidden /></Btn>
+              <Btn variant="navy" onClick={() => { const n = { ...saved }; delete n[i]; setSaved(n); sessionStorage.setItem(KEY, JSON.stringify(n)); setHintLevel(0); }}>ลองคดีนี้ใหม่</Btn>
+            </div>
+            <CaseReport fb={fb} data={q.data} unit={q.unit} />
           </div>
-        </div>
-      )}
+        )}
+      </Investigation>
       <AnimatePresence>
         {scene === 'open' && !fb && <CaseOpenCutscene code={q.code} title={q.title} objective={q.objective} onDone={() => setScene(null)} />}
         {scene === 'result' && fb && <ResultCutscene fb={fb} unit={q.unit} onDone={() => setScene(null)} />}
         {scene === 'final' && <FinalCutscene total={total} solved={Object.values(saved).filter((f) => f.correct).length} count={DEFAULT_CASES.length} onDone={() => { setScene(null); nav('/practice'); }} />}
       </AnimatePresence>
-      {!fb && <Card className="mt-6 text-sm opacity-80">เคล็ดลับ: แตะตัวเลขในชุดข้อมูลเพื่อทำเครื่องหมาย และกด “เรียงจากน้อยไปมาก” เพื่อดูการเรียงข้อมูล</Card>}
     </Page>
   );
 }

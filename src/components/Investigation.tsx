@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, FileText, Image, Lightbulb, Lock, NotebookPen, Receipt, Send, Timer } from 'lucide-react';
+import { ArrowLeft, BarChart3, CheckCircle2, ClipboardCheck, FileText, Image, Lightbulb, Lock, NotebookPen, Receipt, Search, Send, Timer } from 'lucide-react';
 import type { Evidence, QuestionContent } from '../lib/cases';
 import { MEASURE_TH, type Measure, type StudentAnswer } from '../lib/math';
 import { useSettings } from '../lib/settings';
 import { sfx } from '../lib/sound';
-import { Btn, Card, ErrorBox, inputCls } from './ui';
+import { Btn, ErrorBox, inputCls } from './ui';
 import { DataSortingAnimation } from './mathviz';
 import { Art } from './art';
 import { SceneHunt } from './SceneHunt';
@@ -25,11 +25,14 @@ function useDraft<T>(key: string, init: T) {
   return [v, setV] as const;
 }
 
-export function Investigation({ q, draftKey, hints, onRevealHint, onSubmit, locked, lockMsg, deadline, score, progressLabel }: {
+type Tab = 'case' | 'data' | 'answer' | 'hint' | 'result';
+
+/** Fills its parent (Page full). hunt=false skips the find-the-data phase (teacher preview). children = result panel after submit. */
+export function Investigation({ q, draftKey, hints, onRevealHint, onSubmit, locked, lockMsg, deadline, score, progressLabel, hunt = true, children }: {
   q: QuestionContent; draftKey: string; hints: HintState;
   onRevealHint: (level: number) => Promise<void>;
   onSubmit: (a: StudentAnswer, reasoning: string) => Promise<void>;
-  locked: boolean; lockMsg?: string; deadline?: number | null; score?: number; progressLabel?: string;
+  locked: boolean; lockMsg?: string; deadline?: number | null; score?: number; progressLabel?: string; hunt?: boolean; children?: ReactNode;
 }) {
   const { s } = useSettings();
   const [inspected, setInspected] = useDraft<number[]>(draftKey + ':seen', []);
@@ -82,84 +85,107 @@ export function Investigation({ q, draftKey, hints, onRevealHint, onSubmit, lock
   }
 
   const remaining = useCountdown(deadline ?? null);
-  const step = locked ? 4 : measure && (valueText || noMode) ? 3 : inspected.length ? 2 : 1;
-  const [hunted, setHunted] = useDraft(draftKey + ':hunted', false);
+  const [hunted, setHunted] = useDraft(draftKey + ':hunted', !hunt);
+  const [tab, setTab] = useState<Tab>(children ? 'result' : 'case');
+  useEffect(() => { if (children) setTab('result'); }, [!!children]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!hunted && !locked) return <SceneHunt q={q} draftKey={draftKey} onDone={() => setHunted(true)} />;
 
+  const done: Partial<Record<Tab, boolean>> = { case: inspected.length > 0, data: marked.length > 0, answer: locked };
+  const tabs: { id: Tab; label: string; icon: typeof Search }[] = [
+    { id: 'case', label: '1 หลักฐาน', icon: Search },
+    { id: 'data', label: '2 ข้อมูล', icon: BarChart3 },
+    { id: 'answer', label: '3 ตอบ', icon: Send },
+    { id: 'hint', label: `คำใบ้ ${hints.levels.length}/3`, icon: Lightbulb },
+    ...(children ? [{ id: 'result' as Tab, label: 'ผลคดี', icon: ClipboardCheck }] : []),
+  ];
+  const left = tab === 'answer' ? 'case' : tab; // wide screens keep the answer form open on the right
+  const panel = 'min-h-0 overflow-y-auto overscroll-contain rounded-2xl bg-white/90 p-3 text-navy shadow-lg ring-1 ring-navy/10 sm:p-4';
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
-      {/* status strip: never covers the question */}
-      <div className="flex flex-wrap items-center gap-3 lg:col-span-2">
+    <div className="flex h-full flex-col gap-2 p-2 sm:gap-3 sm:p-3">
+      {/* status strip */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <span className="rounded-md bg-navy px-3 py-1 font-num font-bold tracking-wider text-gold">{q.code}</span>
-        <ol className="flex flex-1 flex-wrap gap-1 text-sm" aria-label="ความคืบหน้า">
-          {['อ่านคดี', 'ตรวจหลักฐาน', 'วิเคราะห์', 'ส่งรายงาน'].map((t, k) => (
-            <li key={t} className={`rounded-full px-3 py-1 ${k < step ? 'bg-teal text-white' : 'bg-navy/10'}`} aria-current={k === step - 1}>{k + 1}. {t}</li>
-          ))}
-        </ol>
+        <b className="min-w-0 flex-1 truncate">{q.title}</b>
         {progressLabel && <span className="text-sm opacity-70">{progressLabel}</span>}
         {remaining !== null && <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 font-num font-bold ${remaining < 60 ? 'bg-alert/15 text-alert' : 'bg-navy/10'}`}><Art file="ui-timer.webp" className="h-5 w-5 object-contain" fallback={<Timer size={16} aria-hidden />} /> {fmtTime(remaining)}</span>}
-        {score !== undefined && <span className="rounded-full bg-gold/25 px-3 py-1 font-bold">คะแนนทีม {score}</span>}
+        {score !== undefined && <span className="rounded-full bg-gold/30 px-3 py-1 text-sm font-bold">คะแนน {score}</span>}
       </div>
 
-      <div className="space-y-4">
-        <Card className="bg-gradient-to-br from-navy to-dblue !text-cream">
-          <h2 className="text-2xl font-bold text-gold">{q.title}</h2>
-          <p className="mt-2 leading-relaxed">{q.story}</p>
-          <p className="mt-3 rounded-lg bg-white/10 p-3"><b className="text-gold">ภารกิจ:</b> {q.objective}</p>
-        </Card>
-
-        <Card>
-          <h3 className="mb-3 text-lg font-bold">หลักฐานในแฟ้มคดี</h3>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            {q.evidence.map((ev, k) => {
-              const Icon = ICON[ev.kind];
-              return (
-                <button key={k} onClick={() => { setOpen(k); if (!inspected.includes(k)) setInspected([...inspected, k]); }}
-                  className={`relative min-h-[110px] border border-navy/15 p-3 text-left shadow-md transition hover:-translate-y-1 hover:shadow-xl focus-visible:outline focus-visible:outline-4 focus-visible:outline-gold ${PAPER[ev.kind]}`}>
-                  <Art file={`item-${ev.kind}.webp`} className="mb-1 h-12 w-12 object-contain" fallback={<Icon className="mb-1 text-dblue" aria-hidden />} />
-                  <div className="font-semibold leading-tight">{ev.title}</div>
-                  <div className="mt-1 text-xs opacity-60">{inspected.includes(k) ? '✓ ตรวจแล้ว' : 'แตะเพื่อตรวจสอบ'}</div>
-                </button>
-              );
-            })}
-          </div>
-        </Card>
-
-        <Card>
-          <h3 className="mb-1 text-lg font-bold">ชุดข้อมูล: {q.dataLabel} ({q.unit})</h3>
-          <p className="mb-3 text-sm opacity-70">จำนวน {q.data.length} ค่า</p>
-          <DataSortingAnimation data={q.data} marked={marked} onToggle={(i) => setMarked(marked.includes(i) ? marked.filter((x) => x !== i) : [...marked, i])} />
-          <label className="mt-4 block">
-            <span className="mb-1 block text-sm font-semibold">บันทึกการสืบสวนของทีม</span>
-            <textarea className={inputCls} rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น มีค่าหนึ่งสูงผิดปกติ…" disabled={locked} />
-          </label>
-        </Card>
+      {/* the question stays pinned */}
+      <div className="shrink-0 rounded-2xl bg-navy px-4 py-2 text-cream shadow-lg ring-2 ring-gold/50">
+        <span className="mr-2 rounded bg-gold px-2 text-sm font-bold text-navy">คำถาม</span>
+        <span className="font-semibold sm:text-lg">{q.prompt}</span>
       </div>
 
-      <div className="space-y-4">
-        <Card>
-          <h3 className="mb-2 flex items-center gap-2 text-lg font-bold"><Lightbulb className="text-gold" aria-hidden /> คำใบ้ ({hints.levels.length}/3)</h3>
-          <ol className="space-y-2">
-            {hints.levels.map((h) => (
-              <li key={h.level} className="rounded-lg bg-gold/15 p-3"><b className="text-teal">ระดับ {h.level} — {['สังเกตหลักฐาน', 'เชื่อมโยงข้อมูล', 'แนวทางแก้'][h.level - 1]}:</b> {h.body}</li>
-            ))}
-          </ol>
-          {nextLevel <= 3 && (
-            <div className="mt-3">
-              <Btn variant="navy" disabled={!canHint || busy} onClick={revealHint}>
-                <Lightbulb size={18} aria-hidden /> เปิดคำใบ้ระดับ {nextLevel}{hints.penalty > 0 ? ` (−${hints.penalty} คะแนน)` : ''}
-              </Btn>
-              <p className="mt-1 text-sm opacity-70">
-                {!hints.enabled ? 'ครูปิดคำใบ้อยู่' : inspected.length === 0 ? 'ตรวจหลักฐานอย่างน้อย 1 ชิ้นก่อนเปิดคำใบ้' : 'คำใบ้จะเปิดทีละระดับ และไม่บอกคำตอบทั้งหมด'}
-              </p>
-            </div>
+      <nav className="grid shrink-0 auto-cols-fr grid-flow-col gap-1.5" role="tablist" aria-label="ขั้นตอนการสืบสวน">
+        {tabs.map(({ id, label, icon: Icon }) => (
+          <button key={id} role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+            className={`inline-flex min-h-[44px] items-center justify-center gap-1 whitespace-nowrap rounded-xl px-1 text-[13px] font-bold shadow transition sm:text-base ${id === 'answer' ? 'lg:hidden' : ''}
+            ${tab === id || (id === left && tab === 'answer') ? 'bg-gold text-navy ring-2 ring-navy' : 'bg-white/80 text-navy hover:bg-white'}`}>
+            <Icon size={18} className="hidden sm:inline" aria-hidden /> {label} {done[id] && <CheckCircle2 size={14} className="shrink-0 text-teal" aria-label="ทำแล้ว" />}
+          </button>
+        ))}
+      </nav>
+
+      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[1.15fr_1fr]">
+        <section className={`${panel} ${tab === 'answer' ? 'hidden lg:block' : ''}`} role="tabpanel">
+          {left === 'case' && (
+            <>
+              <p className="leading-relaxed">{q.story}</p>
+              <p className="mt-2 rounded-lg bg-gold/20 p-2"><b>ภารกิจ:</b> {q.objective}</p>
+              <h3 className="mb-2 mt-3 font-bold">หลักฐานในแฟ้มคดี <span className="text-sm font-normal opacity-70">(แตะเพื่อเปิดอ่าน)</span></h3>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {q.evidence.map((ev, k) => {
+                  const Icon = ICON[ev.kind];
+                  return (
+                    <button key={k} onClick={() => { setOpen(k); if (!inspected.includes(k)) setInspected([...inspected, k]); }}
+                      className={`relative min-h-[100px] border border-navy/15 p-3 text-left shadow-md transition hover:-translate-y-1 hover:shadow-xl focus-visible:outline focus-visible:outline-4 focus-visible:outline-gold ${PAPER[ev.kind]}`}>
+                      <Art file={`item-${ev.kind}.webp`} className="mb-1 h-10 w-10 object-contain" fallback={<Icon className="mb-1 text-dblue" aria-hidden />} />
+                      <div className="font-semibold leading-tight">{ev.title}</div>
+                      <div className="mt-1 text-xs opacity-60">{inspected.includes(k) ? '✓ ตรวจแล้ว' : 'แตะเพื่อตรวจสอบ'}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
-        </Card>
+          {left === 'data' && (
+            <>
+              <h3 className="mb-1 font-bold">ข้อมูลที่ทีมหาเจอ: {q.dataLabel} ({q.unit})</h3>
+              <p className="mb-3 text-sm opacity-70">จำนวน {q.data.length} ค่า · แตะตัวเลขเพื่อทำเครื่องหมาย และลองกด “เรียงจากน้อยไปมาก”</p>
+              <DataSortingAnimation data={q.data} marked={marked} onToggle={(i) => setMarked(marked.includes(i) ? marked.filter((x) => x !== i) : [...marked, i])} />
+              <label className="mt-4 block">
+                <span className="mb-1 block text-sm font-semibold">บันทึกการสืบสวนของทีม</span>
+                <textarea className={inputCls} rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="เช่น มีค่าหนึ่งสูงผิดปกติ…" disabled={locked} />
+              </label>
+            </>
+          )}
+          {left === 'hint' && (
+            <>
+              <h3 className="mb-2 flex items-center gap-2 font-bold"><Lightbulb className="text-gold" aria-hidden /> คำใบ้ ({hints.levels.length}/3)</h3>
+              <ol className="space-y-2">
+                {hints.levels.map((h) => (
+                  <li key={h.level} className="rounded-lg bg-gold/15 p-3"><b className="text-teal">ระดับ {h.level} — {['สังเกตหลักฐาน', 'เชื่อมโยงข้อมูล', 'แนวทางแก้'][h.level - 1]}:</b> {h.body}</li>
+                ))}
+              </ol>
+              {nextLevel <= 3 && (
+                <div className="mt-3">
+                  <Btn variant="navy" disabled={!canHint || busy} onClick={revealHint}>
+                    <Lightbulb size={18} aria-hidden /> เปิดคำใบ้ระดับ {nextLevel}{hints.penalty > 0 ? ` (−${hints.penalty} คะแนน)` : ''}
+                  </Btn>
+                  <p className="mt-1 text-sm opacity-70">
+                    {!hints.enabled ? 'ครูปิดคำใบ้อยู่' : inspected.length === 0 ? 'ตรวจหลักฐานอย่างน้อย 1 ชิ้นก่อนเปิดคำใบ้' : 'คำใบ้จะเปิดทีละระดับ และไม่บอกคำตอบทั้งหมด'}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+          {left === 'result' && children}
+        </section>
 
-        <motion.div key={shake} animate={shake ? { x: [0, -8, 8, -5, 5, 0] } : {}} transition={{ duration: 0.35 }}>
-          <Card>
-            <h3 className="mb-2 text-lg font-bold">คำถาม</h3>
-            <p className="mb-4 text-lg font-medium">{q.prompt}</p>
+        <motion.section key={shake} animate={shake ? { x: [0, -8, 8, -5, 5, 0] } : {}} transition={{ duration: 0.35 }}
+          className={`${panel} ${tab === 'answer' ? '' : 'hidden lg:block'}`} role="tabpanel" aria-label="ตอบคดี">
             <fieldset disabled={locked || busy} className="space-y-4">
               <div role="radiogroup" aria-label="เลือกค่ากลาง" className="grid gap-2 sm:grid-cols-3">
                 {(['mean', 'median', 'mode'] as Measure[]).map((m) => (
@@ -199,8 +225,7 @@ export function Investigation({ q, draftKey, hints, onRevealHint, onSubmit, lock
                 {confirm && <Btn variant="ghost" onClick={() => setConfirm(false)}>แก้ไขก่อน</Btn>}
               </div>
             )}
-          </Card>
-        </motion.div>
+        </motion.section>
       </div>
 
       {/* evidence inspection panel */}
