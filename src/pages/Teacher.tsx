@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { History as HistoryIcon, LogOut, Pencil, Plus, Download, Play } from 'lucide-react';
+import { History as HistoryIcon, LogOut, Pencil, Plus, Download, Play, Presentation } from 'lucide-react';
 import { Btn, Card, ConnectionBadge, Empty, ErrorBox, Field, Page, SetupRequired, Spinner, inputCls } from '../components/ui';
 import { createSession, saveQuestion, STATUS_TH, type Session } from '../lib/api';
 import { DEFAULT_CASES } from '../lib/cases';
@@ -102,6 +102,7 @@ function Dashboard({ uid, name }: { uid: string; name: string }) {
     <Page title="ศูนย์ควบคุมครู" back="/hq" right={<ConnectionBadge />}>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <p className="flex-1">สวัสดี <b>{name}</b></p>
+        <Link to="/teach" className="inline-flex min-h-[44px] items-center gap-1 rounded-lg px-3 font-semibold text-dblue hover:bg-navy/5"><Presentation size={18} aria-hidden /> โหมดครูผู้สอน</Link>
         <Link to="/teacher/history" className="inline-flex min-h-[44px] items-center gap-1 rounded-lg px-3 font-semibold text-dblue hover:bg-navy/5"><HistoryIcon size={18} aria-hidden /> ประวัติการสอน</Link>
         <Btn variant="ghost" onClick={() => supabase!.auth.signOut()}><LogOut size={18} aria-hidden /> ออกจากระบบ</Btn>
       </div>

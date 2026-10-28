@@ -67,6 +67,17 @@ for f in sorted(SRC.glob(f'{only}/*')):
         boxes = sorted(ndimage.find_objects(lab), key=lambda b: b[0].start)
         for name, (ys, xs) in zip(['gold', 'navy', 'teal', 'red', 'cream'], boxes[:5]):
             save(im.crop((xs.start, ys.start, xs.stop, ys.stop)), OUT / 'ui' / f'ui-btn-{name}', 768)
+    elif kind == 'ui-icons':  # 3x3 sheet of tiled toolbar icons -> ui-tool-<name>
+        names = ['pen', 'highlighter', 'eraser', 'undo', 'clear', 'timer', 'dice', 'pointer', 'fullscreen']
+        im = cut_white(Image.open(f)); lab, n = ndimage.label(np.asarray(im.getchannel('A')) > 40)
+        sizes = np.bincount(lab.ravel())[1:]
+        keep = [k + 1 for k in np.argsort(sizes)[::-1][:9]]
+        objs = ndimage.find_objects(lab); boxes = [objs[k - 1] for k in keep]
+        assert len(boxes) == 9 and min(sizes[k - 1] for k in keep) > 0.3 * max(sizes), 'expected 9 similar tiles'
+        h = im.height / 3  # row bucket, then x
+        boxes.sort(key=lambda b: (int((b[0].start + b[0].stop) / 2 // h), b[1].start))
+        for name, (ys, xs) in zip(names, boxes):
+            save(im.crop((xs.start, ys.start, xs.stop, ys.stop)), OUT / 'ui' / f'ui-tool-{name}', 192)
     else:
         continue
     print('ok', f.relative_to(SRC))
