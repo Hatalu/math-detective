@@ -4,7 +4,7 @@ import { History as HistoryIcon, LogOut, Pencil, Plus, Download, Play, Presentat
 import { Btn, Card, ConnectionBadge, Empty, ErrorBox, Field, Page, SetupRequired, Spinner, inputCls } from '../components/ui';
 import { createSession, saveQuestion, STATUS_TH, type Session } from '../lib/api';
 import { DEFAULT_CASES } from '../lib/cases';
-import { db, supabase, thaiError } from '../lib/supabase';
+import { db, ensureStudentSession, supabase, thaiError } from '../lib/supabase';
 
 type Auth = { state: 'loading' } | { state: 'out' } | { state: 'notTeacher'; email: string } | { state: 'in'; uid: string; name: string };
 
@@ -14,7 +14,7 @@ export function useTeacher() {
     if (!supabase) return;
     const { data } = await supabase.auth.getUser();
     const u = data.user;
-    if (!u || u.is_anonymous) return setAuth({ state: 'out' });
+    if (!u) return setAuth({ state: 'out' });
     const p = await supabase.from('teacher_profiles').select('display_name').eq('user_id', u.id).maybeSingle();
     setAuth(p.data ? { state: 'in', uid: u.id, name: p.data.display_name } : { state: 'notTeacher', email: u.email ?? '' });
   }, []);
@@ -27,12 +27,23 @@ export function TeacherGate({ title, back = '/hq', children }: { title: string; 
   const auth = useTeacher();
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
+  const [name, setName] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   if (!supabase) return <Page title={title} back={back}><SetupRequired /></Page>;
   if (auth.state === 'loading') return <Page title={title} back={back}><Spinner /></Page>;
   if (auth.state === 'in') return <>{children(auth.uid, auth.name)}</>;
 
+  // open entry: no account, no approval. The teacher row is tied to this browser's anonymous session.
+  async function quick() {
+    setErr(''); setBusy(true);
+    try {
+      await ensureStudentSession();
+      const r = await supabase!.rpc('become_teacher', { p_name: name });
+      if (r.error) throw r.error;
+      await supabase!.auth.refreshSession(); // fires onAuthStateChange so the gate re-checks
+    } catch (e) { setErr(thaiError(e)); } finally { setBusy(false); }
+  }
   async function login() {
     setErr(''); setBusy(true);
     try {
@@ -45,7 +56,15 @@ export function TeacherGate({ title, back = '/hq', children }: { title: string; 
   return (
     <Page title="เข้าสู่ระบบครู" back={back}>
       <Card className="mx-auto max-w-sm space-y-3">
-        {auth.state === 'notTeacher' && <ErrorBox msg={`บัญชี ${auth.email} ยังไม่ได้รับสิทธิ์ครู ให้ผู้ดูแลเพิ่มใน teacher_profiles (ดู README)`} />}
+        <h2 className="text-lg font-bold">เข้าใช้ทันที (ไม่ต้องสมัคร)</h2>
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); quick(); }}>
+          <Field label="ชื่อที่แสดง"><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="เช่น ครูเอิร์ท" /></Field>
+          <Btn className="w-full" disabled={busy}>{busy ? 'กำลังเข้า…' : 'เข้าสู่ศูนย์ควบคุมครู'}</Btn>
+        </form>
+        <p className="text-xs opacity-70">ข้อมูลห้องและชุดโจทย์ผูกกับเบราว์เซอร์นี้ ใช้เครื่องเดิมทุกคาบ ถ้าล้างข้อมูลเบราว์เซอร์จะเริ่มใหม่ (ต้องการใช้หลายเครื่อง ให้ล็อกอินด้วยอีเมลด้านล่าง)</p>
+        <hr className="border-navy/10" />
+        <h2 className="font-bold">หรือเข้าด้วยอีเมล</h2>
+        {auth.state === 'notTeacher' && auth.email && <Btn variant="teal" className="w-full" disabled={busy} onClick={quick}>เปิดสิทธิ์ครูให้บัญชี {auth.email}</Btn>}
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); login(); }}>
           <Field label="อีเมล"><input className={inputCls} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
           <Field label="รหัสผ่าน"><input className={inputCls} type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></Field>

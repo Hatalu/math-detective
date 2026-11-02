@@ -1,7 +1,8 @@
 -- MATH DETECTIVE — Supabase schema, RLS, RPCs, storage. Run once in Supabase SQL Editor.
 -- Re-runnable for functions/policies; tables use "if not exists".
 -- Security model:
---   * Teachers = auth users listed in teacher_profiles (added by an admin via SQL, never by the client).
+--   * Teachers = auth users listed in teacher_profiles. Open by owner's choice: anyone may call become_teacher()
+--     for their OWN uid (no admin approval). A teacher still only sees their own sets/sessions/answers.
 --   * Students = Supabase anonymous auth users, linked to a team via team_members (created only by join_room()).
 --   * Answers/clues are in separate teacher-only tables; students get them only through RPCs.
 --   * Submissions and scores are written only by submit_answer() (security definer). Students have no insert/update.
@@ -502,3 +503,14 @@ create policy gallery_insert on storage.objects for insert to authenticated with
   and team_session(((storage.foldername(name))[2])::uuid) = ((storage.foldername(name))[1])::uuid);
 create policy gallery_delete on storage.objects for delete to authenticated using (
   bucket_id = 'gallery' and (is_session_owner(((storage.foldername(name))[1])::uuid) or is_team_member(((storage.foldername(name))[2])::uuid)));
+
+-- ============ OPEN TEACHER SIGN-UP (owner decision: anyone can be a teacher) ============
+create or replace function become_teacher(p_name text) returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'NOT_SIGNED_IN'; end if;
+  insert into teacher_profiles (user_id, display_name)
+  values (auth.uid(), coalesce(nullif(left(trim(p_name), 60), ''), 'คุณครู'))
+  on conflict (user_id) do nothing;
+end $$;
+revoke all on function become_teacher(text) from public;
+grant execute on function become_teacher(text) to authenticated;
