@@ -18,7 +18,7 @@ export function useTeacher() {
     const p = await supabase.from('teacher_profiles').select('display_name').eq('user_id', u.id).maybeSingle();
     setAuth(p.data ? { state: 'in', uid: u.id, name: p.data.display_name } : { state: 'notTeacher', email: u.email ?? '' });
   }, []);
-  useEffect(() => { check(); const s = supabase?.auth.onAuthStateChange(() => check()); return () => s?.data.subscription.unsubscribe(); }, [check]);
+  useEffect(() => { check(); const s = supabase?.auth.onAuthStateChange(() => { setTimeout(check, 0); }); // defer: auth calls inside this callback deadlock supabase-js return () => s?.data.subscription.unsubscribe(); }, [check]);
   return auth;
 }
 
@@ -41,7 +41,7 @@ export function TeacherGate({ title, back = '/hq', children }: { title: string; 
       await ensureStudentSession();
       const r = await supabase!.rpc('become_teacher', { p_name: name });
       if (r.error) throw r.error;
-      await supabase!.auth.refreshSession(); // fires onAuthStateChange so the gate re-checks
+      location.reload(); // simplest way to make the gate re-check with the new teacher row
     } catch (e) { setErr(thaiError(e)); } finally { setBusy(false); }
   }
   async function login() {
