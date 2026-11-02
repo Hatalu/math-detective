@@ -18,7 +18,7 @@ export function useTeacher() {
     const p = await supabase.from('teacher_profiles').select('display_name').eq('user_id', u.id).maybeSingle();
     setAuth(p.data ? { state: 'in', uid: u.id, name: p.data.display_name } : { state: 'notTeacher', email: u.email ?? '' });
   }, []);
-  useEffect(() => { check(); const s = supabase?.auth.onAuthStateChange(() => { setTimeout(check, 0); }); // defer: auth calls inside this callback deadlock supabase-js return () => s?.data.subscription.unsubscribe(); }, [check]);
+  useEffect(() => { check(); const s = supabase?.auth.onAuthStateChange(() => { setTimeout(check, 0); }); /* defer: auth calls inside this callback deadlock supabase-js */ return () => s?.data.subscription.unsubscribe(); }, [check]);
   return auth;
 }
 
