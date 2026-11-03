@@ -514,3 +514,47 @@ begin
 end $$;
 revoke all on function become_teacher(text) from public;
 grant execute on function become_teacher(text) to authenticated;
+
+-- ============ GALLERY REACTIONS: hearts + comments on approved work ============
+-- session_id is copied in so realtime can filter per room; policies check it matches the work.
+-- The work_gallery subqueries run under the caller's RLS, so you can only react to work you can see.
+create table if not exists gallery_likes (
+  work_id uuid not null references work_gallery on delete cascade,
+  session_id uuid not null references game_sessions on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (work_id, user_id)
+);
+create table if not exists gallery_comments (
+  id uuid primary key default gen_random_uuid(),
+  work_id uuid not null references work_gallery on delete cascade,
+  session_id uuid not null references game_sessions on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  author text not null check (char_length(trim(author)) between 1 and 40),
+  body text not null check (char_length(trim(body)) between 1 and 300),
+  created_at timestamptz not null default now()
+);
+create index if not exists gc_work_idx on gallery_comments(work_id, created_at);
+alter table gallery_likes enable row level security;
+alter table gallery_comments enable row level security;
+
+drop policy if exists gl_read on gallery_likes;
+drop policy if exists gl_insert on gallery_likes;
+drop policy if exists gl_delete on gallery_likes;
+create policy gl_read on gallery_likes for select using (exists (select 1 from work_gallery w where w.id = work_id));
+create policy gl_insert on gallery_likes for insert with check (
+  user_id = auth.uid() and exists (select 1 from work_gallery w where w.id = work_id and w.session_id = gallery_likes.session_id and w.status = 'approved'));
+create policy gl_delete on gallery_likes for delete using (user_id = auth.uid());
+
+drop policy if exists gcm_read on gallery_comments;
+drop policy if exists gcm_insert on gallery_comments;
+drop policy if exists gcm_delete on gallery_comments;
+create policy gcm_read on gallery_comments for select using (exists (select 1 from work_gallery w where w.id = work_id));
+create policy gcm_insert on gallery_comments for insert with check (
+  user_id = auth.uid() and exists (select 1 from work_gallery w where w.id = work_id and w.session_id = gallery_comments.session_id and w.status = 'approved'));
+create policy gcm_delete on gallery_comments for delete using (user_id = auth.uid() or is_session_owner(session_id));
+
+do $$ begin
+  begin alter publication supabase_realtime add table gallery_likes; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table gallery_comments; exception when duplicate_object then null; end;
+end $$;

@@ -77,7 +77,9 @@ export default function Play() {
   }
 
   const deadline = g?.question_started_at && g.time_limit_sec ? new Date(g.question_started_at).getTime() + g.time_limit_sec * 1000 : null;
-  const header = <div className="flex items-center gap-2"><span className="hidden font-semibold sm:inline">{team?.team_name}</span><ConnectionBadge realtime={rt} /></div>;
+  const header = <div className="flex items-center gap-2"><span className="hidden font-semibold sm:inline">{team?.team_name}</span>
+    <Link to={`/gallery/${sid}`} className="inline-flex min-h-[44px] items-center gap-1 rounded-full bg-gold px-3 text-sm font-bold text-navy"><Image size={16} aria-hidden /> บอร์ดผลงาน</Link>
+    <ConnectionBadge realtime={rt} /></div>;
 
   const playing = !!g && !!q && !['waiting', 'completed'].includes(g.status);
   return (
