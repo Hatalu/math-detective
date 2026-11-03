@@ -16,10 +16,10 @@ const PINS = ['ui-pin-red.webp', 'ui-pin-teal.webp', 'ui-pin-gold.webp'];
 const STATUS_TH = { pending: 'รออนุมัติ', approved: 'อนุมัติแล้ว', hidden: 'ซ่อน' };
 
 /** XHR upload so we can show real progress (supabase-js upload has no progress events). */
-function uploadWithProgress(path: string, file: File, token: string, onProgress: (p: number) => void) {
+export function uploadWithProgress(path: string, file: File, token: string, onProgress: (p: number) => void, bucket = 'gallery') {
   return new Promise<void>((resolve, reject) => {
     const x = new XMLHttpRequest();
-    x.open('POST', `${SUPABASE_URL}/storage/v1/object/gallery/${path}`);
+    x.open('POST', `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`);
     x.setRequestHeader('Authorization', `Bearer ${token}`);
     x.setRequestHeader('apikey', SUPABASE_ANON_KEY);
     x.setRequestHeader('x-upsert', 'false');

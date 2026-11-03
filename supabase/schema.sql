@@ -558,3 +558,90 @@ do $$ begin
   begin alter publication supabase_realtime add table gallery_likes; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table gallery_comments; exception when duplicate_object then null; end;
 end $$;
+
+-- ============ SHOWCASE BOARDS (standalone, not tied to a game session) ============
+-- Teacher makes a board, students scan its QR (#/board/<code>), post a worksheet photo, heart and comment.
+-- Anyone signed in (students are anonymous) who knows the code can see the board. Owner can hide/delete anything.
+create table if not exists boards (
+  id uuid primary key default gen_random_uuid(),
+  code text not null unique default upper(substr(md5(gen_random_uuid()::text), 1, 6)),
+  teacher_id uuid not null default auth.uid() references teacher_profiles(user_id) on delete cascade,
+  title text not null check (char_length(trim(title)) between 1 and 80),
+  created_at timestamptz not null default now()
+);
+create table if not exists board_posts (
+  id uuid primary key default gen_random_uuid(),
+  board_id uuid not null references boards on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  author text not null check (char_length(trim(author)) between 1 and 40),
+  caption text not null default '' check (char_length(caption) <= 300),
+  image_path text not null,
+  hidden boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create table if not exists board_likes (
+  post_id uuid not null references board_posts on delete cascade,
+  board_id uuid not null references boards on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  primary key (post_id, user_id)
+);
+create table if not exists board_comments (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references board_posts on delete cascade,
+  board_id uuid not null references boards on delete cascade,
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  author text not null check (char_length(trim(author)) between 1 and 40),
+  body text not null check (char_length(trim(body)) between 1 and 300),
+  created_at timestamptz not null default now()
+);
+create index if not exists bp_board_idx on board_posts(board_id, created_at);
+
+create or replace function is_board_owner(bid uuid) returns boolean language sql stable security definer set search_path = public as
+$$ select exists (select 1 from boards where id = bid and teacher_id = auth.uid()) $$;
+
+alter table boards enable row level security;
+alter table board_posts enable row level security;
+alter table board_likes enable row level security;
+alter table board_comments enable row level security;
+
+drop policy if exists b_read on boards; drop policy if exists b_insert on boards; drop policy if exists b_owner on boards; drop policy if exists b_delete on boards;
+create policy b_read on boards for select to authenticated using (true);
+create policy b_insert on boards for insert to authenticated with check (teacher_id = auth.uid() and is_teacher());
+create policy b_owner on boards for update using (teacher_id = auth.uid()) with check (teacher_id = auth.uid());
+create policy b_delete on boards for delete using (teacher_id = auth.uid());
+
+drop policy if exists bp_read on board_posts; drop policy if exists bp_insert on board_posts; drop policy if exists bp_update on board_posts; drop policy if exists bp_delete on board_posts;
+create policy bp_read on board_posts for select to authenticated using (not hidden or user_id = auth.uid() or is_board_owner(board_id));
+create policy bp_insert on board_posts for insert to authenticated with check (user_id = auth.uid() and not hidden);
+create policy bp_update on board_posts for update using (is_board_owner(board_id)) with check (is_board_owner(board_id)); -- only hide/unhide
+create policy bp_delete on board_posts for delete using (user_id = auth.uid() or is_board_owner(board_id));
+
+-- reactions: only on posts you can see, board_id must match the post (realtime filters on it)
+drop policy if exists bl_read on board_likes; drop policy if exists bl_insert on board_likes; drop policy if exists bl_delete on board_likes;
+create policy bl_read on board_likes for select to authenticated using (exists (select 1 from board_posts p where p.id = post_id));
+create policy bl_insert on board_likes for insert to authenticated with check (
+  user_id = auth.uid() and exists (select 1 from board_posts p where p.id = post_id and p.board_id = board_likes.board_id));
+create policy bl_delete on board_likes for delete using (user_id = auth.uid());
+
+drop policy if exists bc_read on board_comments; drop policy if exists bc_insert on board_comments; drop policy if exists bc_delete on board_comments;
+create policy bc_read on board_comments for select to authenticated using (exists (select 1 from board_posts p where p.id = post_id));
+create policy bc_insert on board_comments for insert to authenticated with check (
+  user_id = auth.uid() and exists (select 1 from board_posts p where p.id = post_id and p.board_id = board_comments.board_id));
+create policy bc_delete on board_comments for delete using (user_id = auth.uid() or is_board_owner(board_id));
+
+do $$ begin
+  begin alter publication supabase_realtime add table board_posts; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table board_likes; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table board_comments; exception when duplicate_object then null; end;
+end $$;
+
+-- photos: private bucket, path <board_id>/<uuid>.<ext>
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('board', 'board', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do nothing;
+drop policy if exists board_read on storage.objects; drop policy if exists board_insert on storage.objects; drop policy if exists board_delete on storage.objects;
+create policy board_read on storage.objects for select to authenticated using (bucket_id = 'board');
+create policy board_insert on storage.objects for insert to authenticated with check (
+  bucket_id = 'board' and exists (select 1 from boards b where b.id::text = (storage.foldername(name))[1]));
+create policy board_delete on storage.objects for delete to authenticated using (
+  bucket_id = 'board' and (owner = auth.uid() or is_board_owner(((storage.foldername(name))[1])::uuid)));

@@ -7,6 +7,8 @@ import HQ from './pages/HQ';
 import SettingsPage from './pages/Settings';
 import Practice from './pages/Practice';
 import Teach from './pages/Teach';
+import Boards from './pages/Boards';
+import Board from './pages/Board';
 import Join from './pages/Join';
 import Play from './pages/Play';
 import Teacher from './pages/Teacher';
@@ -54,6 +56,8 @@ function Routed() {
             <Route path="/join/:code" element={<Join />} />
             <Route path="/play/:sid" element={<Play />} />
             <Route path="/teach" element={<Teach />} />
+            <Route path="/boards" element={<Boards />} />
+            <Route path="/board/:code" element={<Board />} />
             <Route path="/teacher" element={<Teacher />} />
             <Route path="/teacher/history" element={<History />} />
             <Route path="/teacher/session/:sid" element={<TeacherSession />} />

@@ -4,14 +4,14 @@ import { Copy, Download, Check, AlertTriangle } from 'lucide-react';
 import { Btn } from './ui';
 
 /** Real deployed URL (VITE_PUBLIC_SITE_URL) or the current page's origin+path. */
-export function joinUrl(code: string) {
+export function joinUrl(code: string, path = `/join/${code}`) {
   const base = (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined) || location.origin + location.pathname;
-  return `${base.replace(/#.*$/, '').replace(/\/?$/, '/')}#/join/${code}`;
+  return `${base.replace(/#.*$/, '').replace(/\/?$/, '/')}#${path}`;
 }
 export const isLocalUrl = (u: string) => /\/\/(localhost|127\.0\.0\.1|\[::1\])/.test(u);
 
-export function RoomQR({ code, size = 220, controls = true }: { code: string; size?: number; controls?: boolean }) {
-  const url = joinUrl(code);
+export function RoomQR({ code, size = 220, controls = true, path }: { code: string; size?: number; controls?: boolean; path?: string }) {
+  const url = joinUrl(code, path);
   const wrap = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const download = () => {
