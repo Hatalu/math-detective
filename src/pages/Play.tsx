@@ -48,8 +48,10 @@ export default function Play() {
       ]);
       setHints(h);
       const mine = (subs.data as Submission | null) ?? null; setSub(mine);
-      const f = mine || s.reveal_answer || s.status === 'reviewing' ? await getFeedback(sid, q.id) : null;
-      setReveal(f); setFb(mine && f ? toFeedback(mine, f) : null);
+      // answers stay hidden until the teacher opens them, so groups cannot pass answers to each other
+      const f = s.reveal_answer ? await getFeedback(sid, q.id) : null;
+      setReveal(f);
+      setFb((old) => { const next = mine && f ? toFeedback(mine, f) : null; if (next && !old) setScene('result'); return next; });
       setErr('');
     } catch (e) { setErr(thaiError(e)); }
   }, [sid, qs]);
@@ -71,9 +73,7 @@ export default function Play() {
   async function submit(a: StudentAnswer, reasoning: string) {
     if (!navigator.onLine) throw new Error('ออฟไลน์อยู่ คำตอบยังไม่ถูกส่ง เมื่ออินเทอร์เน็ตกลับมาให้กดส่งอีกครั้ง');
     const s = await submitAnswer(sid, a, reasoning, clientId(`cid:${sid}:${q!.id}`));
-    setSub(s);
-    const f = await getFeedback(sid, q!.id);
-    if (f) { setFb(toFeedback(s, f)); setScene('result'); }
+    setSub(s); // result is shown when the teacher reveals the answer
   }
 
   const deadline = g?.question_started_at && g.time_limit_sec ? new Date(g.question_started_at).getTime() + g.time_limit_sec * 1000 : null;
@@ -107,7 +107,7 @@ export default function Play() {
               onRevealHint={async (lv) => { try { setHints(await revealHint(sid, lv)); } catch (e) { throw new Error(thaiError(e)); } }}
               onSubmit={submit}
               locked={!!sub || g.status !== 'active'}
-              lockMsg={sub ? 'ทีมส่งรายงานแล้ว (ระบบยืนยันแล้ว) รอครูเปิดเฉลยหรือภารกิจถัดไป' : g.status === 'reviewing' ? 'ปิดรับคำตอบแล้ว ช่วงเฉลย' : 'ยังไม่เปิดรับคำตอบ'}
+              lockMsg={sub ? 'ส่งคำตอบแล้ว ✓ รอเพื่อนกลุ่มอื่น แล้วรอครูเปิดเฉลย' : g.status === 'reviewing' ? 'ปิดรับคำตอบแล้ว ช่วงเฉลย' : 'ยังไม่เปิดรับคำตอบ'}
               deadline={g.status === 'active' ? deadline : null}
               progressLabel={`ภารกิจ ${g.current_index + 1}/${qs.length}`}>
               {fb ? <CaseReport fb={fb} data={q.content.data} unit={q.content.unit} />

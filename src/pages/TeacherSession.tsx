@@ -159,8 +159,9 @@ function Live({ sid }: { sid: string }) {
           {q && key && (
             <Card>
               <button className="flex min-h-[44px] w-full items-center justify-between font-bold" onClick={() => setShowKey((x) => !x)} aria-expanded={showKey}>
-                เฉลยสำหรับครู: {MEASURE_TH[key.measure]} = {key.noMode ? 'ไม่มีฐานนิยม' : key.values.map(fmt).join(' และ ')} {q.content.unit}
-                <span className="text-sm text-teal">{showKey ? 'ซ่อนขั้นตอน' : 'แสดงขั้นตอนทีละขั้น'}</span>
+                {/* hidden by default: this screen may be on the projector */}
+                {showKey ? <>เฉลยสำหรับครู: {MEASURE_TH[key.measure]} = {key.noMode ? 'ไม่มีฐานนิยม' : key.values.map(fmt).join(' และ ')} {q.content.unit}</> : 'เฉลยสำหรับครู (ซ่อนอยู่)'}
+                <span className="text-sm text-teal">{showKey ? 'ซ่อนเฉลย' : 'แตะเพื่อดูเฉลย'}</span>
               </button>
               {showKey && <div className="mt-3"><CalculationStepReveal measure={key.measure} data={q.content.data} /></div>}
             </Card>
