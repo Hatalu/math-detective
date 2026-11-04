@@ -9,6 +9,7 @@ import Practice from './pages/Practice';
 import Teach from './pages/Teach';
 import Boards from './pages/Boards';
 import Board from './pages/Board';
+import PrintQR from './pages/PrintQR';
 import Join from './pages/Join';
 import Play from './pages/Play';
 import Teacher from './pages/Teacher';
@@ -57,6 +58,7 @@ function Routed() {
             <Route path="/play/:sid" element={<Play />} />
             <Route path="/teach" element={<Teach />} />
             <Route path="/boards" element={<Boards />} />
+            <Route path="/print/:sid" element={<PrintQR />} />
             <Route path="/board/:code" element={<Board />} />
             <Route path="/teacher" element={<Teacher />} />
             <Route path="/teacher/history" element={<History />} />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Users } from 'lucide-react';
 import { Btn, Card, ConnectionBadge, ErrorBox, Field, Page, SetupRequired, Spinner, inputCls, useOnline } from '../components/ui';
 import { joinRoom, roomStatus, STATUS_TH, type Status } from '../lib/api';
@@ -10,7 +10,9 @@ export default function Join() {
   const nav = useNavigate();
   const online = useOnline();
   const [code, setCode] = useState((param ?? '').toUpperCase());
-  const [team, setTeam] = useState('');
+  const [qs] = useSearchParams();
+  const preset = qs.get('team') ?? '';
+  const [team, setTeam] = useState(preset);
   const [room, setRoom] = useState<{ exists: boolean; id?: string; status?: Status; join_open?: boolean; title?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -21,7 +23,7 @@ export default function Join() {
     try { await ensureStudentSession(); setRoom(await roomStatus(c.trim())); }
     catch (e) { setErr(thaiError(e)); } finally { setBusy(false); }
   }
-  useEffect(() => { if (param && supabase) check(param); }, [param]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (param && supabase) (preset ? join() : check(param)); }, [param]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function join() {
     setErr(''); setBusy(true);
@@ -36,6 +38,7 @@ export default function Join() {
 
   return (
     <Page title="เข้าห้องสืบสวน" back="/hq" right={<ConnectionBadge />}>
+      {preset && <p className="mx-auto mb-3 max-w-md rounded-xl bg-gold/30 p-3 text-center text-lg font-bold">{busy ? `กำลังพา${preset}เข้าห้อง…` : `แฟ้มลับของ${preset}`}</p>}
       <Card className="mx-auto max-w-md space-y-4">
         <Field label="รหัสห้อง">
           <div className="flex gap-2">

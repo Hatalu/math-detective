@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { Link, useParams } from 'react-router-dom';
-import { Eye, EyeOff, FileDown, Flag, Image, Lightbulb, ListChecks, Lock, MonitorPlay, Pause, Play, RotateCcw, SkipForward, Trophy, Unlock } from 'lucide-react';
+import { CheckCircle2, Eye, EyeOff, FileDown, Flag, Image, Lightbulb, ListChecks, Lock, Mail, MonitorPlay, Pause, Play, QrCode, RotateCcw, Shuffle, SkipForward, Trophy, Unlock } from 'lucide-react';
+import { GroupPicker } from '../components/GroupPicker';
 import { Btn, Card, ConnectionBadge, Empty, ErrorBox, Page, Spinner, inputCls } from '../components/ui';
 import { RoomQR } from '../components/RoomQR';
 import { CalculationStepReveal } from '../components/mathviz';
@@ -22,6 +24,9 @@ function Live({ sid }: { sid: string }) {
   const [exits, setExits] = useState<ExitRow[]>([]);
   const [err, setErr] = useState('');
   const [showKey, setShowKey] = useState(false);
+  const [opened, setOpened] = useState<string[]>([]); // teams whose answer the teacher opened (this mission)
+  const [picker, setPicker] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -54,13 +59,15 @@ function Live({ sid }: { sid: string }) {
   const q = qs[g.current_index];
   const cur = subs.filter((s) => s.question_id === q?.id);
   const totals = (tid: string) => subs.filter((s) => s.team_id === tid).reduce((a, s) => a + s.total_score, 0);
+  const allIn = teams.length > 0 && cur.length === teams.length;
+  const open1 = (tid: string) => setOpened((o) => (o.includes(tid) ? o : [...o, tid]));
 
   async function act(patch: Partial<Session>, confirmMsg?: string) {
     if (confirmMsg && !confirm(confirmMsg)) return;
     try { setG(await updateSession(sid, patch)); } catch (e) { setErr(thaiError(e)); }
   }
   const now = () => new Date().toISOString();
-  const startMission = (index: number) => act({ status: 'active', current_index: index, question_started_at: now(), paused_at: null, reveal_answer: false, revealed_hint_level: 0 });
+  const startMission = (index: number) => { setOpened([]); return act({ status: 'active', current_index: index, question_started_at: now(), paused_at: null, reveal_answer: false, revealed_hint_level: 0 }); };
   const resume = () => {
     const shift = g.paused_at && g.question_started_at ? Date.now() - new Date(g.paused_at).getTime() : 0;
     act({ status: 'active', paused_at: null, question_started_at: g.question_started_at ? new Date(new Date(g.question_started_at).getTime() + shift).toISOString() : now() });
@@ -93,10 +100,12 @@ function Live({ sid }: { sid: string }) {
       {err && <div className="mb-4"><ErrorBox msg={err} onRetry={load} /></div>}
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <div className="space-y-4">
-          <Card><RoomQR code={g.room_code} size={200} />
-            <div className="mt-3 flex flex-wrap justify-center gap-2">
-              <Link to={`/lobby/${sid}`} className="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-gold px-3 font-bold"><MonitorPlay size={18} aria-hidden /> จอโปรเจกเตอร์</Link>
-            </div>
+          <Card className="space-y-2">
+            <div className="text-center"><span className="text-sm opacity-70">รหัสห้อง</span><div className="font-num text-3xl font-black tracking-[.25em]">{g.room_code}</div></div>
+            <Link to={`/print/${sid}`} className="flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-gold px-3 font-bold"><Mail size={18} aria-hidden /> พิมพ์ QR ใส่ซองจดหมาย</Link>
+            <Link to={`/lobby/${sid}`} className="flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-navy/10 px-3 font-semibold"><MonitorPlay size={18} aria-hidden /> จอโปรเจกเตอร์</Link>
+            <button onClick={() => setShowQR((x) => !x)} className="flex min-h-[44px] w-full items-center justify-center gap-2 text-sm font-semibold text-dblue" aria-expanded={showQR}><QrCode size={16} aria-hidden /> {showQR ? 'ซ่อน QR ห้อง' : 'แสดง QR ห้อง (ไม่จำเป็น)'}</button>
+            {showQR && <RoomQR code={g.room_code} size={180} />}
           </Card>
           <Card>
             <h2 className="mb-2 font-bold">ตั้งค่าห้อง</h2>
@@ -158,21 +167,29 @@ function Live({ sid }: { sid: string }) {
           )}
 
           <Card>
-            <h2 className="mb-3 text-lg font-bold">ความคืบหน้าของทีม</h2>
-            {teams.length === 0 ? <Empty>ยังไม่มีทีมเข้าร่วม ให้นักเรียนสแกน QR</Empty> : (
-              <ul className="space-y-3">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h2 className="flex-1 text-lg font-bold">มอนิเตอร์กลุ่ม · ส่งแล้ว {cur.length}/{teams.length}</h2>
+              {g.status !== 'waiting' && <Btn onClick={() => setPicker(true)} disabled={!teams.length}><Shuffle size={18} aria-hidden /> สุ่มกลุ่มตอบ</Btn>}
+            </div>
+            {allIn && <p className="mb-3 flex items-center gap-2 rounded-xl bg-teal p-3 text-lg font-bold text-white"><CheckCircle2 aria-hidden /> ครบแล้ว! ทุกกลุ่มส่งคำตอบแล้ว กด “เปิดดู” ทีละกลุ่ม หรือ “สุ่มกลุ่มตอบ”</p>}
+            {teams.length === 0 ? <Empty>ยังไม่มีกลุ่มเข้าห้อง ให้แต่ละกลุ่มสแกน QR ในซองจดหมาย</Empty> : (
+              <ul className="grid gap-3 sm:grid-cols-2">
                 {teams.map((t) => {
                   const s = cur.find((x) => x.team_id === t.id);
+                  const isOpen = !!s && opened.includes(t.id);
                   return (
-                    <li key={t.id} className="rounded-xl border border-navy/10 p-3">
+                    <li key={t.id} className={`rounded-xl border-2 p-3 ${s ? 'border-teal bg-teal/5' : 'border-navy/10'} ${isOpen ? 'sm:col-span-2' : ''}`}>
                       <div className="flex flex-wrap items-center gap-2">
-                        <b className="flex-1">{t.name}</b>
-                        <span className={`rounded-full px-3 py-0.5 text-sm ${s ? (s.is_correct ? 'bg-teal text-white' : 'bg-gold/40') : 'bg-navy/10'}`}>{s ? (s.is_correct ? 'ส่งแล้ว · ถูก' : 'ส่งแล้ว · ยังไม่ถูก') : 'ยังไม่ส่ง'}</span>
-                        <span className="font-num text-sm">รวม {totals(t.id)}</span>
+                        <b className="flex-1 text-lg">{t.name}</b>
+                        {/* no right/wrong or score here: the projector must not let groups copy each other */}
+                        <span className={`rounded-full px-3 py-0.5 text-sm font-semibold ${s ? 'bg-teal text-white' : 'bg-navy/10'}`}>{s ? '✓ ส่งแล้ว' : g.status === 'waiting' ? 'พร้อมแล้ว' : 'กำลังสืบสวน…'}</span>
+                        {s && !isOpen && <Btn variant="navy" onClick={() => open1(t.id)}><Eye size={16} aria-hidden /> เปิดดู</Btn>}
+                        {isOpen && <Btn variant="ghost" onClick={() => setOpened((o) => o.filter((x) => x !== t.id))}><EyeOff size={16} aria-hidden /> ปิด</Btn>}
                       </div>
-                      {s && (
+                      {isOpen && s && (
                         <div className="mt-2 space-y-2 text-sm">
-                          <p>คำตอบ: <b>{s.answer.measure ? MEASURE_TH[s.answer.measure] : '-'}</b> = {s.answer.noMode ? 'ไม่มีฐานนิยม' : s.answer.values.map(fmt).join(', ')} · ใช้คำใบ้ {s.hints_used} · คะแนน {s.total_score}</p>
+                          <p className="text-lg">เลือก: <b className="text-2xl">{s.answer.measure ? MEASURE_TH[s.answer.measure] : '-'}</b>{q?.content.askValue && <> = {s.answer.noMode ? 'ไม่มีฐานนิยม' : s.answer.values.map(fmt).join(', ')}</>}
+                            <span className={`ml-2 rounded-full px-2 text-sm ${s.is_correct ? 'bg-teal text-white' : 'bg-gold/40'}`}>{s.is_correct ? 'ถูก' : 'ยังไม่ถูก'}</span> <span className="text-sm opacity-70">· คำใบ้ {s.hints_used} · คะแนน {s.total_score} · รวม {totals(t.id)}</span></p>
                           <p className="whitespace-pre-wrap rounded bg-navy/5 p-2">{s.reasoning || '(ไม่ได้เขียนเหตุผล)'}</p>
                           <div className="flex flex-wrap gap-3">
                             <label>เหตุผล <select className="min-h-[40px] rounded border px-1" value={s.reasoning_score} onChange={(e) => grade(s, { reasoning_score: Number(e.target.value) })}>{[0, 5, 10, 15, 20, 25].map((v) => <option key={v}>{v}</option>)}</select>/25</label>
@@ -204,6 +221,11 @@ function Live({ sid }: { sid: string }) {
           </Card>
         </div>
       </div>
+      <AnimatePresence>
+        {picker && <GroupPicker names={(cur.length ? teams.filter((t) => cur.some((s) => s.team_id === t.id)) : teams).map((t) => t.name)}
+          onPick={(i) => { const pool = cur.length ? teams.filter((t) => cur.some((s) => s.team_id === t.id)) : teams; open1(pool[i].id); }}
+          onClose={() => setPicker(false)} />}
+      </AnimatePresence>
     </Page>
   );
 }

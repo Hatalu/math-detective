@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Maximize } from 'lucide-react';
 import { Page, ConnectionBadge, ErrorBox, Spinner } from '../components/ui';
-import { RoomQR } from '../components/RoomQR';
 import { HQScene } from '../components/cinema';
 import { Cody } from '../components/characters';
 import { useCountdown, fmtTime } from '../components/Investigation';
@@ -11,7 +10,7 @@ import { TeacherGate } from './Teacher';
 import { getQuestions, getSession, scoreboard, useRealtime, STATUS_TH, type QuestionRow, type ScoreRow, type Session } from '../lib/api';
 import { thaiError } from '../lib/supabase';
 
-/** Projector screen: big QR + room code, live teams, current mission, (optional) leaderboard. */
+/** Projector screen: live groups, current mission, (optional) leaderboard. Groups join from printed envelope QRs, so no QR here. */
 function Screen({ sid }: { sid: string }) {
   const [g, setG] = useState<Session | null>(null);
   const [qs, setQs] = useState<QuestionRow[]>([]);
@@ -42,12 +41,7 @@ function Screen({ sid }: { sid: string }) {
           <button onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})} className="grid h-11 w-11 place-items-center rounded-full bg-black/40" aria-label="เต็มจอ"><Maximize aria-hidden /></button>
         </header>
         {err && <ErrorBox msg={err} onRetry={load} />}
-        <div className="grid flex-1 items-start gap-6 lg:grid-cols-[auto_1fr]">
-          <div className="rounded-3xl bg-navy/80 p-6 text-center backdrop-blur">
-            <p className="mb-2 text-xl">สแกนเพื่อเข้าห้อง หรือพิมพ์รหัส</p>
-            <RoomQR code={g.room_code} size={300} controls={false} />
-            <p className={`mt-3 inline-block rounded-full px-4 py-1 ${g.join_open ? 'bg-teal' : 'bg-alert'}`}>{g.join_open ? 'เปิดรับทีม' : 'ปิดรับทีมใหม่'}</p>
-          </div>
+        <div className="flex-1">
           <div className="space-y-4">
             <div className="rounded-3xl bg-navy/80 p-6 backdrop-blur">
               <div className="flex flex-wrap items-center gap-4">

@@ -45,14 +45,15 @@ describe('math engine', () => {
 
 describe('default cases are mathematically consistent', () => {
   const expected: Record<string, number[]> = {
-    'CASE 01': [16], 'CASE 02': [38], 'CASE 03': [380], 'CASE 04': [10.5],
-    'CASE 05': [], 'CASE 06': [4, 6], 'CASE 07': [154], 'CASE 08': [15.5],
+    'CASE 01': [16], 'CASE 02': [38], 'CASE 03': [380], 'CASE 04': [10],
+    'CASE 05': [48], 'CASE 06': [4], 'CASE 07': [154], 'CASE 08': [15.5],
   };
   for (const c of DEFAULT_CASES) {
     it(c.code, () => {
       const k = answerKey(c);
       expect(k.values).toEqual(expected[c.code]);
-      expect(k.noMode).toBe(c.code === 'CASE 05');
+      expect(k.noMode).toBe(false);
+      expect(c.target).toBe('choose');
       // every token must resolve, so no "{...}" survives templating
       expect(c.clues.map((t) => fillTemplate(t, c.data)).join(' ')).not.toMatch(/\{\w+\}/);
     });
