@@ -25,23 +25,39 @@ export function SceneHunt({ scene, draftKey, onDone }: { scene: CaseScene; draft
 
   function take(i: number) {
     if (found.includes(i)) return;
-    sfx('reveal', s.muted); setFound([...found, i]); setPop(i);
+    sfx('reveal', s.muted); setFound((f) => (f.includes(i) ? f : [...f, i])); setPop(i); // functional: fast double taps must not drop a find
   }
 
   return (
     <div className="relative flex h-full w-full flex-col bg-navy text-cream">
-      {/* instruction bar */}
-      <div className="flex shrink-0 items-center gap-3 bg-navy p-2 px-3 shadow-xl">
-        <Hand className="shrink-0 text-gold" aria-hidden />
-        <p className="min-w-0 flex-1 font-bold leading-tight text-gold sm:text-lg">แตะหาเบาะแสที่ซ่อนอยู่ในฉากให้ครบ</p>
-        <div className="shrink-0 text-center" aria-live="polite">
-          <span className="font-num text-2xl font-black text-gold sm:text-3xl">{found.length}/{items.length}</span>
+      {/* checklist: what to find; found ones fade and get a red tick */}
+      <div className="shrink-0 bg-navy px-3 py-2 shadow-xl">
+        <div className="mb-1.5 flex items-center gap-2">
+          <Hand className="shrink-0 text-gold" size={20} aria-hidden />
+          <p className="min-w-0 flex-1 font-bold leading-tight text-gold sm:text-lg">ภารกิจ: หาของเหล่านี้ในฉากให้ครบ {items.length} ชิ้น</p>
+          <span className="shrink-0 font-num text-2xl font-black text-gold sm:text-3xl" aria-live="polite">{found.length}/{items.length}</span>
         </div>
+        <ul className="flex gap-1.5 overflow-x-auto sm:justify-center sm:gap-2" aria-label="รายการของที่ต้องหา">
+          {items.map((it, i) => {
+            const got = found.includes(i);
+            return (
+              <li key={i} className={`relative flex w-[72px] shrink-0 flex-col items-center rounded-xl p-1 sm:w-[84px] ${got ? 'bg-cream/40' : 'bg-cream'}`} aria-label={`${it.label}${got ? ' (เจอแล้ว)' : ''}`}>
+                <Art file={it.file} className={`h-10 w-10 object-contain transition sm:h-12 sm:w-12 ${got ? 'opacity-35 grayscale' : ''}`} />
+                <span className={`mt-0.5 w-full truncate text-center text-[11px] font-semibold leading-tight text-navy sm:text-xs ${got ? 'opacity-50' : ''}`}>{it.label}</span>
+                {got && (
+                  <motion.svg initial={{ scale: 0 }} animate={{ scale: 1 }} viewBox="0 0 24 24" className="absolute left-1/2 top-1 h-10 w-10 -translate-x-1/2 drop-shadow sm:h-12 sm:w-12" aria-hidden>
+                    <path d="M4 13l5 5L20 6" fill="none" stroke="#DC2626" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+                  </motion.svg>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </div>
 
       {/* scene keeps the art's 16:9 ratio so items stay on the spots they were placed on */}
       <div className="grid min-h-0 flex-1 place-items-center overflow-hidden">
-        <div className="relative aspect-video max-h-full w-full max-w-full [container-type:inline-size]" style={{ maxWidth: 'calc((100dvh - 9rem) * 16 / 9)' }}>
+        <div className="relative aspect-video max-h-full w-full max-w-full [container-type:inline-size]" style={{ maxWidth: 'calc((100dvh - 15rem) * 16 / 9)' }}>
           <Art file={scene.bg} className="absolute inset-0 h-full w-full object-cover" fallback={<div className="absolute inset-0 bg-gradient-to-br from-dblue to-navy" />} />
           {items.map((it, i) => {
             const got = found.includes(i);
@@ -49,7 +65,7 @@ export function SceneHunt({ scene, draftKey, onDone }: { scene: CaseScene; draft
               <button key={i} type="button" onClick={() => take(i)} disabled={got || all}
                 aria-label={got ? `${it.name}: ${it.value}` : 'เบาะแสที่ซ่อนอยู่'}
                 className="absolute -translate-x-1/2 -translate-y-1/2 focus-visible:outline focus-visible:outline-4 focus-visible:outline-gold"
-                style={{ left: `${it.x}%`, top: `${it.y}%`, width: `max(${it.w}cqw, 30px)` }}>
+                style={{ left: `${it.x}%`, top: `${it.y}%`, width: `max(${it.w}cqw, 18px)` }}>
                 <span className="block" style={{ transform: `rotate(${it.rot ?? 0}deg)`, opacity: got ? 0.35 : 1 }}>
                   <Art file={it.file} className="pointer-events-none w-full object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,.6)]" fallback={<span className="block aspect-square rounded-full bg-gold/80" />} />
                 </span>
@@ -73,7 +89,7 @@ export function SceneHunt({ scene, draftKey, onDone }: { scene: CaseScene; draft
         {pop !== null && !all && (
           <motion.div key={pop} initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
             onAnimationComplete={() => setTimeout(() => setPop(null), 900)}
-            className="pointer-events-none absolute left-1/2 top-16 z-10 -translate-x-1/2 rounded-xl bg-cream px-4 py-2 text-center text-navy shadow-xl ring-2 ring-gold">
+            className="pointer-events-none absolute bottom-16 left-1/2 z-10 -translate-x-1/2 rounded-xl bg-cream px-4 py-2 text-center text-navy shadow-xl ring-2 ring-gold">
             <div className="text-sm">พบ{items[pop].name}!</div>
             <b className="font-num text-2xl text-teal">{items[pop].value}</b>
           </motion.div>

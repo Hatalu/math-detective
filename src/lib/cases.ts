@@ -36,7 +36,7 @@ export function answerKey(q: CaseQuestion): ExpectedAnswer & { steps: string[] }
 }
 
 /** One clue hidden in the case scene. x/y = centre in % of the scene, w = width in % of the scene width. */
-export interface SceneItem { name: string; file: string; value: string; x: number; y: number; w: number; rot?: number }
+export interface SceneItem { name: string; label: string; file: string; value: string; x: number; y: number; w: number; rot?: number }
 
 /** Everything the class screens need that is not in the database: scene art, items, teacher prompt. */
 export interface CaseScene {
@@ -95,11 +95,11 @@ export const CASE_SCENES: Record<string, CaseScene> = {
     teacherAsk: 'ข้อมูลชุดนี้มีค่าไหนแปลกไหม',
     explain: 'ค่าที่สูงมาก (1,000) ดึงค่าเฉลี่ยให้สูงขึ้นเป็น 210.8 ซึ่งไม่ใช่รายได้ของคนส่วนใหญ่ ส่วนมัธยฐานดูแค่ตำแหน่งตรงกลาง ได้ 14 พันบาท ใกล้กับรายได้ของคนส่วนใหญ่',
     items: [
-      { name: 'กรรไกรตัดกิ่งของคนสวน', file: 'item-c1-shears.webp', value: '12 พันบาท', x: 13, y: 91, w: 6, rot: -30 },
-      { name: 'ไม้ขนไก่ของแม่บ้าน', file: 'item-c1-duster.webp', value: '14 พันบาท', x: 73, y: 74, w: 5, rot: 20 },
-      { name: 'กุญแจรถของคนขับรถ', file: 'item-c1-key.webp', value: '13 พันบาท', x: 22, y: 69, w: 3.5, rot: 10 },
-      { name: 'หมวกเชฟของพ่อครัว', file: 'item-c1-chefhat.webp', value: '15 พันบาท', x: 53, y: 55, w: 3.5 },
-      { name: 'แหวนเพชรของเจ้าของคฤหาสน์', file: 'item-c1-ring.webp', value: '1,000 พันบาท', x: 25, y: 49, w: 2.6 },
+      { name: 'กรรไกรตัดกิ่งของคนสวน', label: 'กรรไกรตัดกิ่ง', file: 'item-c1-shears.webp', value: '12 พันบาท', x: 14, y: 88, w: 4.5, rot: -30 },
+      { name: 'ไม้ขนไก่ของแม่บ้าน', label: 'ไม้ขนไก่', file: 'item-c1-duster.webp', value: '14 พันบาท', x: 30, y: 68, w: 4, rot: 25 },
+      { name: 'กุญแจรถของคนขับรถ', label: 'กุญแจรถ', file: 'item-c1-key.webp', value: '13 พันบาท', x: 86, y: 73, w: 3.5, rot: 60 },
+      { name: 'หมวกเชฟของพ่อครัว', label: 'หมวกเชฟ', file: 'item-c1-chefhat.webp', value: '15 พันบาท', x: 44, y: 54, w: 4.5 },
+      { name: 'แหวนเพชรของเจ้าของคฤหาสน์', label: 'แหวนเพชร', file: 'item-c1-ring.webp', value: '1,000 พันบาท', x: 66, y: 47, w: 3.5 },
     ],
   },
   'CASE 02': {
@@ -108,11 +108,11 @@ export const CASE_SCENES: Record<string, CaseScene> = {
     teacherAsk: 'คดีนี้มีค่าแปลกเหมือนคดีที่แล้วไหม',
     explain: 'ขนาดรองเท้าใกล้เคียงกันหมด (26 ถึง 28) ไม่มีค่าผิดปกติ ค่าเฉลี่ยได้ 27 และมัธยฐานก็ได้ 27 ใกล้กันมาก ค่าเฉลี่ยใช้ข้อมูลทุกรอยจึงเป็นตัวแทนภาพรวมได้ดี',
     items: [
-      { name: 'รอยเท้ารอยที่ 1', file: 'item-c2-footprint.webp', value: 'Size 26', x: 16, y: 82, w: 4.5, rot: -15 },
-      { name: 'รอยเท้ารอยที่ 2', file: 'item-c2-footprint.webp', value: 'Size 27', x: 34, y: 66, w: 3.5, rot: 10 },
-      { name: 'รอยเท้ารอยที่ 3', file: 'item-c2-footprint.webp', value: 'Size 26', x: 50, y: 88, w: 4.5, rot: -5 },
-      { name: 'รอยเท้ารอยที่ 4', file: 'item-c2-footprint.webp', value: 'Size 28', x: 68, y: 72, w: 3.5, rot: 20 },
-      { name: 'รอยเท้ารอยที่ 5', file: 'item-c2-footprint.webp', value: 'Size 28', x: 85, y: 84, w: 4, rot: -25 },
+      { name: 'รอยเท้ารอยที่ 1', label: 'รอยเท้า 1', file: 'item-c2-footprint.webp', value: 'Size 26', x: 16, y: 82, w: 4.5, rot: -15 },
+      { name: 'รอยเท้ารอยที่ 2', label: 'รอยเท้า 2', file: 'item-c2-footprint.webp', value: 'Size 27', x: 34, y: 66, w: 3.5, rot: 10 },
+      { name: 'รอยเท้ารอยที่ 3', label: 'รอยเท้า 3', file: 'item-c2-footprint.webp', value: 'Size 26', x: 50, y: 88, w: 4.5, rot: -5 },
+      { name: 'รอยเท้ารอยที่ 4', label: 'รอยเท้า 4', file: 'item-c2-footprint.webp', value: 'Size 28', x: 68, y: 72, w: 3.5, rot: 20 },
+      { name: 'รอยเท้ารอยที่ 5', label: 'รอยเท้า 5', file: 'item-c2-footprint.webp', value: 'Size 28', x: 85, y: 84, w: 4, rot: -25 },
     ],
   },
   'CASE 03': {
@@ -121,12 +121,12 @@ export const CASE_SCENES: Record<string, CaseScene> = {
     teacherAsk: 'แพทย์นิติเวชต้องการหาอะไร',
     explain: 'หมู่เลือดเป็นข้อมูลหมวดหมู่ บวกหรือเรียงลำดับแบบตัวเลขไม่ได้ จึงหาค่าเฉลี่ยและมัธยฐานไม่ได้ ใช้ฐานนิยม: หมู่ O พบ 3 ครั้ง มากที่สุด',
     items: [
-      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 1', file: 'item-c3-tube.webp', value: 'หมู่ A', x: 22, y: 31, w: 1.8, rot: 5 },
-      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 2', file: 'item-c3-tube.webp', value: 'หมู่ B', x: 46, y: 65, w: 2.2, rot: 70 },
-      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 3', file: 'item-c3-tube.webp', value: 'หมู่ O', x: 64, y: 55, w: 2, rot: -80 },
-      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 4', file: 'item-c3-tube.webp', value: 'หมู่ O', x: 73, y: 46, w: 1.8, rot: 0 },
-      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 5', file: 'item-c3-tube.webp', value: 'หมู่ A', x: 82, y: 88, w: 2.4, rot: 75 },
-      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 6', file: 'item-c3-tube.webp', value: 'หมู่ O', x: 93, y: 68, w: 2, rot: -20 },
+      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 1', label: 'หลอดเลือด 1', file: 'item-c3-tube.webp', value: 'หมู่ A', x: 47, y: 33, w: 1.5, rot: 0 },
+      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 2', label: 'หลอดเลือด 2', file: 'item-c3-tube.webp', value: 'หมู่ B', x: 15, y: 52, w: 1.5, rot: 70 },
+      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 3', label: 'หลอดเลือด 3', file: 'item-c3-tube.webp', value: 'หมู่ O', x: 60, y: 52, w: 1.5, rot: -75 },
+      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 4', label: 'หลอดเลือด 4', file: 'item-c3-tube.webp', value: 'หมู่ O', x: 30, y: 88, w: 1.5, rot: 80 },
+      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 5', label: 'หลอดเลือด 5', file: 'item-c3-tube.webp', value: 'หมู่ A', x: 80, y: 92, w: 1.5, rot: -60 },
+      { name: 'หลอดเลือดผู้ต้องสงสัยคนที่ 6', label: 'หลอดเลือด 6', file: 'item-c3-tube.webp', value: 'หมู่ O', x: 88, y: 55, w: 1.5, rot: 20 },
     ],
   },
 };
