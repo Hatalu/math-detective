@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
-import { Image, ListChecks, PauseCircle, Trophy } from 'lucide-react';
-import { Card, ConnectionBadge, Empty, ErrorBox, Page, SetupRequired, Spinner } from '../components/ui';
-import { Investigation } from '../components/Investigation';
-import { CaseOpenCutscene, CaseReport, ResultCutscene, type Feedback } from '../components/CaseResult';
-import { Cody } from '../components/characters';
-import {
-  getFeedback, getHints, getQuestions, getSession, myTeam, revealHint, submitAnswer, toFeedback, useRealtime,
-  type QuestionRow, type Session, type Submission,
-} from '../lib/api';
+import { useParams } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import { CheckCircle2, Hourglass, Send, XCircle } from 'lucide-react';
+import { Btn, Card, ConnectionBadge, ErrorBox, Page, SetupRequired, Spinner } from '../components/ui';
+import { Art } from '../components/art';
+import { SceneHunt } from '../components/SceneHunt';
+import { getFeedback, getQuestions, getSession, myTeam, submitAnswer, useRealtime, type Feedback, type QuestionRow, type Session, type Submission } from '../lib/api';
+import { CASE_SCENES, DEFAULT_CASES, type CaseQuestion, type CaseScene } from '../lib/cases';
+import { MEASURE_TH, type Measure } from '../lib/math';
+import { useSettings } from '../lib/settings';
+import { sfx } from '../lib/sound';
 import { db, ensureStudentSession, supabase, thaiError } from '../lib/supabase';
-import type { StudentAnswer } from '../lib/math';
+
+type Reveal = Omit<Feedback, 'correct' | 'scores'>;
+const MEASURES: Measure[] = ['mean', 'median', 'mode'];
 
 function clientId(key: string) {
   // same id across retries → server returns the stored submission instead of creating a duplicate
@@ -23,13 +25,9 @@ export default function Play() {
   const [g, setG] = useState<Session | null>(null);
   const [team, setTeam] = useState<{ team_id: string; team_name: string } | null | undefined>(undefined);
   const [qs, setQs] = useState<QuestionRow[]>([]);
-  const [hints, setHints] = useState<{ level: number; body: string }[]>([]);
   const [sub, setSub] = useState<Submission | null>(null);
-  const [fb, setFb] = useState<Feedback | null>(null);
-  const [reveal, setReveal] = useState<Omit<Feedback, 'correct' | 'scores'> | null>(null);
+  const [reveal, setReveal] = useState<Reveal | null>(null);
   const [err, setErr] = useState('');
-  const [scene, setScene] = useState<'open' | 'result' | null>(null);
-  const [seenQ, setSeenQ] = useState('');
 
   const load = useCallback(async () => {
     if (!supabase) return;
@@ -41,85 +39,168 @@ export default function Play() {
       const list = qs.length ? qs : s.question_set_id ? await getQuestions(s.question_set_id) : [];
       if (!qs.length) setQs(list);
       const q = list[s.current_index];
-      if (!q) return;
-      const [h, subs] = await Promise.all([
-        getHints(sid, q.id),
-        db().from('submissions').select('*').eq('team_id', t.team_id).eq('question_id', q.id).maybeSingle(),
-      ]);
-      setHints(h);
-      const mine = (subs.data as Submission | null) ?? null; setSub(mine);
-      // answers stay hidden until the teacher opens them, so groups cannot pass answers to each other
-      const f = s.reveal_answer ? await getFeedback(sid, q.id) : null;
-      setReveal(f);
-      setFb((old) => { const next = mine && f ? toFeedback(mine, f) : null; if (next && !old) setScene('result'); return next; });
+      if (!q || s.status === 'waiting') { setSub(null); setReveal(null); return; }
+      const r = await db().from('submissions').select('*').eq('team_id', t.team_id).eq('question_id', q.id).maybeSingle();
+      setSub((r.data as Submission | null) ?? null);
+      setReveal(s.reveal_answer ? await getFeedback(sid, q.id) : null); // answers stay hidden until the teacher reveals
       setErr('');
     } catch (e) { setErr(thaiError(e)); }
   }, [sid, qs]);
-
   useEffect(() => { load(); }, [load]);
   const rt = useRealtime(team ? `play-${sid}-${team.team_id}` : null, [
-    { table: 'game_sessions', filter: `id=eq.${sid}` },
-    { table: 'hint_unlocks', filter: `team_id=eq.${team?.team_id}` },
-    { table: 'submissions', filter: `team_id=eq.${team?.team_id}` },
+    { table: 'game_sessions', filter: `id=eq.${sid}` }, { table: 'submissions', filter: `team_id=eq.${team?.team_id}` },
   ], load);
 
-  const q = g ? qs[g.current_index] : undefined;
-  useEffect(() => { if (q && q.id !== seenQ && !sub && g?.status === 'active') { setSeenQ(q.id); setScene('open'); } }, [q?.id, g?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!supabase) return <Page title="คดีปริศนา" back="/hq"><SetupRequired /></Page>;
+  if (team === undefined && !err) return <Page title="คดีปริศนา" back="/hq"><Spinner /></Page>;
+  if (team === null) return <Page title="คดีปริศนา" back="/hq"><ErrorBox msg="เครื่องนี้ยังไม่ได้อยู่ในทีมของห้องนี้ กรุณาสแกน QR ในซองปริศนาของทีมอีกครั้ง" /></Page>;
 
-  if (!supabase) return <Page title="ห้องสืบสวน" back="/hq"><SetupRequired /></Page>;
-  if (team === undefined && !err) return <Page title="ห้องสืบสวน" back="/hq"><Spinner /></Page>;
-  if (team === null) return <Page title="ห้องสืบสวน" back="/join"><ErrorBox msg="อุปกรณ์นี้ยังไม่ได้เข้าร่วมทีมในห้องนี้ กรุณาสแกน QR หรือใส่รหัสห้องใหม่" /></Page>;
+  const q = g && g.status !== 'waiting' ? qs[g.current_index] : undefined;
+  const c = DEFAULT_CASES.find((x) => x.code === q?.content.code);
+  const scene = c && CASE_SCENES[c.code];
+  const header = <div className="flex items-center gap-2"><span className="font-semibold">{team?.team_name}</span><ConnectionBadge realtime={rt} /></div>;
 
-  async function submit(a: StudentAnswer, reasoning: string) {
+  async function submit(measure: Measure, reasoning: string) {
     if (!navigator.onLine) throw new Error('ออฟไลน์อยู่ คำตอบยังไม่ถูกส่ง เมื่ออินเทอร์เน็ตกลับมาให้กดส่งอีกครั้ง');
-    const s = await submitAnswer(sid, a, reasoning, clientId(`cid:${sid}:${q!.id}`));
-    setSub(s); // result is shown when the teacher reveals the answer
+    setSub(await submitAnswer(sid, { measure, values: [], noMode: false }, reasoning, clientId(`cid:${sid}:${q!.id}:${g!.question_started_at}`)));
   }
 
-  const deadline = g?.question_started_at && g.time_limit_sec ? new Date(g.question_started_at).getTime() + g.time_limit_sec * 1000 : null;
-  const header = <div className="flex items-center gap-2"><span className="hidden font-semibold sm:inline">{team?.team_name}</span><ConnectionBadge realtime={rt} /></div>;
-
-  const playing = !!g && !!q && !['waiting', 'completed'].includes(g.status);
   return (
-    <Page full={playing} title={g?.title ?? 'ห้องสืบสวน'} back="/hq" right={header}>
-      {err && <div className={playing ? 'p-2' : 'mb-4'}><ErrorBox msg={err} onRetry={load} /></div>}
-      {!g ? <Spinner /> : g.status === 'waiting' ? (
-        <Card className="mx-auto max-w-md text-center">
-          <div className="mx-auto h-28 w-28"><Cody /></div>
-          <h2 className="text-2xl font-bold">ทีม {team?.team_name} เข้าห้องแล้ว</h2>
-          <p className="mt-2">รอครูเริ่มภารกิจ… หน้านี้จะเปลี่ยนเองอัตโนมัติ</p>
+    <Page full={!!q} title={q ? `${q.content.code} ${q.content.title}` : 'คดีปริศนา'} back="/hq" right={header}>
+      {err && <div className="p-2"><ErrorBox msg={err} onRetry={load} /></div>}
+      {!g ? <Spinner /> : !q || !c || !scene ? (
+        <Card className="mx-auto mt-6 max-w-md text-center">
+          <Hourglass className="mx-auto mb-2 text-gold" size={48} aria-hidden />
+          <h2 className="text-2xl font-bold">{team?.team_name} พร้อมแล้ว!</h2>
+          <p className="mt-2 text-lg">รอครูเปิดคดี… หน้านี้จะเปลี่ยนเองอัตโนมัติ</p>
+          <p className="mt-3 rounded-xl bg-gold/20 p-3 text-left">กติกา<br />1. แต่ละทีมส่งคำตอบได้ครั้งเดียว<br />2. ส่งแล้วจะยังไม่รู้ว่าถูกหรือผิด จนกว่าครูจะเปิดเฉลย</p>
         </Card>
-      ) : g.status === 'completed' ? (
-        <Card className="mx-auto max-w-lg space-y-3 text-center">
-          <h2 className="text-2xl font-bold">ปิดแฟ้มคดีแล้ว ขอบคุณนักสืบทุกคน!</h2>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Link className="rounded-xl bg-gold p-3 font-bold" to={`/gallery/${sid}`}><Image className="mx-auto" aria-hidden />ส่งผลงาน</Link>
-            <Link className="rounded-xl bg-teal p-3 font-bold text-white" to={`/exit/${sid}`}><ListChecks className="mx-auto" aria-hidden />Exit Ticket</Link>
-            <Link className="rounded-xl bg-dblue p-3 font-bold text-white" to={`/scoreboard/${sid}`}><Trophy className="mx-auto" aria-hidden />คะแนน</Link>
-          </div>
-        </Card>
-      ) : !q ? <Empty>ครูยังไม่ได้ใส่โจทย์ในชุดนี้</Empty> : (
-        <div className="flex h-full flex-col">
-          {g.status === 'paused' && <p className="m-2 mb-0 flex shrink-0 items-center gap-2 rounded-xl bg-gold/40 p-2 font-semibold"><PauseCircle aria-hidden /> ครูพักเกมชั่วคราว คุณยังอ่านหลักฐานได้ แต่ส่งคำตอบไม่ได้</p>}
-          <div className="min-h-0 flex-1">
-            <Investigation key={q.id} q={q.content} draftKey={`${sid}:${q.id}`}
-              hints={{ levels: hints, enabled: g.hints_enabled, penalty: g.hint_penalty }}
-              onRevealHint={async (lv) => { try { setHints(await revealHint(sid, lv)); } catch (e) { throw new Error(thaiError(e)); } }}
-              onSubmit={submit}
-              locked={!!sub || g.status !== 'active'}
-              lockMsg={sub ? 'ส่งคำตอบแล้ว ✓ รอเพื่อนกลุ่มอื่น แล้วรอครูเปิดเฉลย' : g.status === 'reviewing' ? 'ปิดรับคำตอบแล้ว ช่วงเฉลย' : 'ยังไม่เปิดรับคำตอบ'}
-              deadline={g.status === 'active' ? deadline : null}
-              progressLabel={`ภารกิจ ${g.current_index + 1}/${qs.length}`}>
-              {fb ? <CaseReport fb={fb} data={q.content.data} unit={q.content.unit} />
-                : reveal ? <CaseReport fb={{ ...reveal, correct: false, scores: { accuracy: 0, method: 0, reasoning: 0, communication: 0, speed: 0, penalty: 0, total: 0 } }} data={q.content.data} unit={q.content.unit} /> : undefined}
-            </Investigation>
-          </div>
-          <AnimatePresence>
-            {scene === 'open' && <CaseOpenCutscene code={q.content.code} title={q.content.title} objective={q.content.objective} onDone={() => setScene(null)} />}
-            {scene === 'result' && fb && <ResultCutscene fb={fb} unit={q.content.unit} onDone={() => setScene(null)} />}
-          </AnimatePresence>
-        </div>
+      ) : sub || reveal ? (
+        <div className="h-full overflow-y-auto p-3"><Result c={c} scene={scene} sub={sub} reveal={reveal} /></div>
+      ) : (
+        <CaseFlow key={`${q.id}:${g.question_started_at}`} c={c} scene={scene} draftKey={`${sid}:${q.id}:${g.question_started_at}`} onSubmit={submit} />
       )}
     </Page>
+  );
+}
+
+/** One case for a team: hunt the clues in the scene, then choose the measure and give a reason. */
+function CaseFlow({ c, scene, draftKey, onSubmit }: { c: CaseQuestion; scene: CaseScene; draftKey: string; onSubmit: (m: Measure, r: string) => Promise<void> }) {
+  const pk = draftKey + ':phase';
+  const [phase, setPhase] = useState<'brief' | 'hunt' | 'answer'>(() => (sessionStorage.getItem(pk) as 'hunt' | 'answer' | null) ?? 'brief');
+  useEffect(() => { try { sessionStorage.setItem(pk, phase); } catch { /* not kept */ } }, [pk, phase]);
+
+  if (phase === 'brief') return (
+    <div className="relative h-full overflow-hidden">
+      <Art file={scene.bg} className="absolute inset-0 h-full w-full object-cover opacity-60" />
+      <div className="relative grid h-full place-items-center overflow-y-auto p-4">
+        <motion.div initial={{ scale: 0.8, rotate: -3, opacity: 0 }} animate={{ scale: 1, rotate: -1, opacity: 1 }} className="w-full max-w-lg rounded-2xl bg-cream p-5 text-navy shadow-2xl ring-4 ring-gold">
+          <p className="font-num text-sm font-bold tracking-[.3em] text-alert">{c.code} · แฟ้มลับ</p>
+          <h2 className="text-3xl font-black">{c.title}</h2>
+          <p className="mt-2 text-lg">{c.story}</p>
+          <p className="mt-3 rounded-xl bg-navy/5 p-3"><b>ภารกิจ:</b> {c.objective}</p>
+          <Btn className="mt-4 w-full text-xl" onClick={() => setPhase('hunt')}>เข้าที่เกิดเหตุ</Btn>
+        </motion.div>
+      </div>
+    </div>
+  );
+  if (phase === 'hunt') return <SceneHunt scene={scene} draftKey={draftKey} onDone={() => setPhase('answer')} />;
+  return <AnswerForm c={c} scene={scene} draftKey={draftKey} onSubmit={onSubmit} />;
+}
+
+function AnswerForm({ c, scene, draftKey, onSubmit }: { c: CaseQuestion; scene: CaseScene; draftKey: string; onSubmit: (m: Measure, r: string) => Promise<void> }) {
+  const { s } = useSettings();
+  const [m, setM] = useState<Measure | null>(() => (sessionStorage.getItem(draftKey + ':m') as Measure | null));
+  const [why, setWhy] = useState(() => sessionStorage.getItem(draftKey + ':why') ?? '');
+  const [ask, setAsk] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  useEffect(() => { try { if (m) sessionStorage.setItem(draftKey + ':m', m); sessionStorage.setItem(draftKey + ':why', why); } catch { /* not kept */ } }, [draftKey, m, why]);
+
+  async function send() {
+    setBusy(true); setErr('');
+    try { await onSubmit(m!, why.trim()); sfx('stamp', s.muted); } catch (e) { setErr(thaiError(e)); setAsk(false); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="h-full overflow-y-auto p-3 sm:p-5">
+      <div className="mx-auto max-w-3xl space-y-4">
+        <div className="rounded-2xl bg-navy p-4 text-cream shadow-lg">
+          <p className="text-sm text-gold">{c.dataLabel}{c.unit && ` (${c.unit})`}</p>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {scene.items.map((it, i) => <span key={i} className="rounded-lg bg-cream px-3 py-1 font-num text-2xl font-black text-navy">{it.value.replace(/ พันบาท|Size |หมู่ /g, '')}</span>)}
+          </div>
+        </div>
+
+        <h2 className="text-center text-2xl font-black sm:text-3xl">{c.prompt}</h2>
+        <div className="grid grid-cols-3 gap-2 sm:gap-4" role="radiogroup" aria-label="เลือกค่ากลาง">
+          {MEASURES.map((k) => (
+            <button key={k} role="radio" aria-checked={m === k} onClick={() => { setM(k); sfx('click', s.muted); }}
+              className={`flex flex-col items-center gap-1 rounded-2xl border-4 p-3 text-lg font-black transition sm:p-5 sm:text-2xl ${m === k ? 'scale-105 border-gold bg-gold text-navy shadow-[0_6px_0_#b5740a]' : 'border-navy/15 bg-white text-navy hover:border-gold'}`}>
+              <Art file={`ui-icon-${k}.webp`} className="h-14 w-14 object-contain sm:h-20 sm:w-20" />
+              {MEASURE_TH[k]}
+            </button>
+          ))}
+        </div>
+
+        <label className="block">
+          <span className="mb-1 block text-xl font-bold">เหตุผลของทีม</span>
+          <textarea className="w-full rounded-2xl border-4 border-navy/15 bg-white p-3 text-lg text-navy focus:border-gold focus:outline-none" rows={4} maxLength={2000}
+            value={why} onChange={(e) => setWhy(e.target.value)} placeholder="ทำไมทีมเราจึงเลือกค่ากลางนี้" />
+        </label>
+        {err && <ErrorBox msg={err} />}
+        <Btn className="w-full !min-h-[64px] text-2xl" disabled={!m || !why.trim() || busy} onClick={() => setAsk(true)}><Send aria-hidden /> ส่งคำตอบ</Btn>
+        {(!m || !why.trim()) && <p className="text-center opacity-70">เลือกค่ากลางและเขียนเหตุผลก่อนส่ง</p>}
+      </div>
+
+      <AnimatePresence>
+        {ask && (
+          <motion.div className="fixed inset-0 z-50 grid place-items-center bg-navy/80 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
+            <motion.div initial={{ scale: 0.85 }} animate={{ scale: 1 }} className="w-full max-w-md rounded-3xl bg-cream p-6 text-center text-navy shadow-2xl ring-4 ring-alert">
+              <h2 id="confirm-title" className="text-2xl font-black text-alert">ส่งคำตอบได้ครั้งเดียวนะ!</h2>
+              <p className="mt-2 text-lg">ทีมเลือก <b>{m && MEASURE_TH[m]}</b><br />ส่งแล้วแก้ไขไม่ได้ ยืนยันการส่งไหม?</p>
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <Btn variant="ghost" className="!text-navy" onClick={() => setAsk(false)} disabled={busy}>ยกเลิกการส่ง</Btn>
+                <Btn variant="teal" onClick={send} disabled={busy}>{busy ? 'กำลังส่ง…' : 'ยืนยัน'}</Btn>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function Result({ c, scene, sub, reveal }: { c: CaseQuestion; scene: CaseScene; sub: Submission | null; reveal: Reveal | null }) {
+  const mine = sub?.answer.measure;
+  return (
+    <div className="mx-auto max-w-2xl space-y-4">
+      {sub && (
+        <Card className="text-center">
+          <p className="text-sm font-bold tracking-widest opacity-70">คำตอบของทีม</p>
+          <p className="text-3xl font-black">{mine ? MEASURE_TH[mine] : '-'}</p>
+          <p className="mt-1 whitespace-pre-wrap">{sub.reasoning}</p>
+        </Card>
+      )}
+      {!reveal ? (
+        <Card className="text-center">
+          <CheckCircle2 className="mx-auto text-teal" size={48} aria-hidden />
+          <h2 className="mt-1 text-2xl font-bold">ส่งคำตอบแล้ว</h2>
+          <p className="text-lg">รอครูเปิดเฉลย…</p>
+        </Card>
+      ) : (
+        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+          className={`rounded-3xl p-5 text-center shadow-2xl ring-4 ${!sub ? 'bg-white text-navy ring-gold' : sub.is_correct ? 'bg-teal text-white ring-gold' : 'bg-alert text-white ring-cream'}`}>
+          {sub && (sub.is_correct
+            ? <p className="flex items-center justify-center gap-2 text-3xl font-black"><CheckCircle2 size={36} aria-hidden /> ไขคดีสำเร็จ!</p>
+            : <p className="flex items-center justify-center gap-2 text-3xl font-black"><XCircle size={36} aria-hidden /> ยังไม่ถูก ลองฟังครูอธิบาย</p>)}
+          {!sub && <p className="text-xl font-bold">ทีมไม่ได้ส่งคำตอบในคดีนี้</p>}
+          <p className="mt-3 text-sm font-bold tracking-widest opacity-80">เฉลย</p>
+          <p className="flex items-center justify-center gap-2 text-3xl font-black"><Art file={`ui-icon-${reveal.measure}.webp`} className="h-12 w-12 object-contain" />{MEASURE_TH[reveal.measure]}</p>
+          <p className="mt-2 text-lg">{reveal.reasoning || c.reasoning}</p>
+          <p className="mt-2 opacity-90">{scene.explain}</p>
+        </motion.div>
+      )}
+    </div>
   );
 }

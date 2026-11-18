@@ -80,7 +80,6 @@ export function SetupRequired() {
         <li>คัดลอก <code>.env.example</code> เป็น <code>.env</code> แล้วใส่ URL และ anon key</li>
         <li>Build/Deploy ใหม่ (ดู README)</li>
       </ol>
-      <Link to="/practice" className="font-semibold text-teal underline">ระหว่างนี้ลองเล่นโหมดฝึกสืบสวน (เล่นบนเครื่องนี้ ไม่บันทึกผล) →</Link>
     </div>
   );
 }

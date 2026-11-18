@@ -38,7 +38,7 @@ export default function Join() {
 
   return (
     <Page title="เข้าห้องสืบสวน" back="/hq" right={<ConnectionBadge />}>
-      {preset && <p className="mx-auto mb-3 max-w-md rounded-xl bg-gold/30 p-3 text-center text-lg font-bold">{busy ? `กำลังพา${preset}เข้าห้อง…` : `แฟ้มลับของ${preset}`}</p>}
+      {preset && <p className="mx-auto mb-3 max-w-md rounded-xl bg-gold/30 p-3 text-center text-lg font-bold">{busy ? `กำลังพา${preset}เข้าห้อง…` : `ซองปริศนาของ${preset}`}</p>}
       <Card className="mx-auto max-w-md space-y-4">
         <Field label="รหัสห้อง">
           <div className="flex gap-2">
@@ -56,13 +56,12 @@ export default function Join() {
         )}
         {room?.exists && room.status !== 'completed' && (
           <>
-            <Field label="ชื่อทีม (ใช้ชื่อทีม ไม่ใช้ชื่อจริง) — เพื่อนในทีมพิมพ์ชื่อเดียวกันเพื่อเข้าทีมเดียวกัน">
+            <Field label="ชื่อทีม (ตามที่ครูสร้างไว้)">
               <input className={inputCls} maxLength={30} value={team} onChange={(e) => setTeam(e.target.value)} placeholder="เช่น ทีมนกฮูกทองคำ" />
             </Field>
             <Btn className="w-full" onClick={join} disabled={busy || !online || team.trim().length < 2}><Users aria-hidden /> เข้าร่วมทีม</Btn>
           </>
         )}
-        {room?.exists && <Link to={`/exit/${room.id}`} className="block text-center font-semibold text-teal underline">ทำ Exit Ticket รายบุคคล</Link>}
         {err && <ErrorBox msg={err} onRetry={online ? () => (room ? join() : check()) : undefined} />}
       </Card>
     </Page>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateMean, calculateMedian, calculateModes, sortData, generateDataset, evaluateAnswer, calculateScore, expectedFor, fillTemplate, parseDataText } from './math';
-import { DEFAULT_CASES, answerKey } from './cases';
+import { CASE_SCENES, DEFAULT_CASES, answerKey } from './cases';
 
 describe('math engine', () => {
   it('mean/median/mode basics', () => {
@@ -44,10 +44,7 @@ describe('math engine', () => {
 });
 
 describe('default cases are mathematically consistent', () => {
-  const expected: Record<string, number[]> = {
-    'CASE 01': [16], 'CASE 02': [38], 'CASE 03': [380], 'CASE 04': [10],
-    'CASE 05': [48], 'CASE 06': [4], 'CASE 07': [154], 'CASE 08': [15.5],
-  };
+  const expected: Record<string, number[]> = { 'CASE 01': [14], 'CASE 02': [27], 'CASE 03': [3] };
   for (const c of DEFAULT_CASES) {
     it(c.code, () => {
       const k = answerKey(c);
@@ -58,5 +55,11 @@ describe('default cases are mathematically consistent', () => {
       expect(c.clues.map((t) => fillTemplate(t, c.data)).join(' ')).not.toMatch(/\{\w+\}/);
     });
   }
-  it('case 03 mean really is 660 as the story claims', () => expect(calculateMean(DEFAULT_CASES[2].data)).toBe(660));
+  it('every data value has one scene item', () => {
+    for (const c of DEFAULT_CASES) expect(CASE_SCENES[c.code].items).toHaveLength(c.data.length);
+  });
+  it('case 01 mean is pulled far above the median by the outlier', () => {
+    expect(calculateMean(DEFAULT_CASES[0].data)).toBe(210.8);
+    expect(calculateMedian(DEFAULT_CASES[0].data)).toBe(14);
+  });
 });

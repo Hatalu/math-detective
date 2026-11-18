@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { History as HistoryIcon, LogOut, Pencil, Plus, Download, Play, Presentation } from 'lucide-react';
+import { DoorOpen, LogOut, Plus, Trash2 } from 'lucide-react';
 import { Btn, Card, ConnectionBadge, Empty, ErrorBox, Field, Page, SetupRequired, Spinner, inputCls } from '../components/ui';
-import { createSession, saveQuestion, STATUS_TH, type Session } from '../lib/api';
-import { DEFAULT_CASES } from '../lib/cases';
+import { createRoom, type Session } from '../lib/api';
 import { db, ensureStudentSession, supabase, thaiError } from '../lib/supabase';
 
 type Auth = { state: 'loading' } | { state: 'out' } | { state: 'notTeacher'; email: string } | { state: 'in'; uid: string; name: string };
@@ -77,97 +76,59 @@ export function TeacherGate({ title, back = '/hq', children }: { title: string; 
   );
 }
 
-interface SetRow { id: string; title: string; updated_at: string; questions: { count: number }[] }
-
+/** Rooms stay until the teacher deletes them, so one room per class can be reused lesson after lesson. */
 function Dashboard({ uid, name }: { uid: string; name: string }) {
   const nav = useNavigate();
-  const [sets, setSets] = useState<SetRow[] | null>(null);
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [title, setTitle] = useState('คาบสถิติ ค่ากลางของข้อมูล');
-  const [cls, setCls] = useState('');
-  const [setId, setSetId] = useState('');
+  const [rooms, setRooms] = useState<(Session & { teams: { count: number }[] })[] | null>(null);
+  const [title, setTitle] = useState('');
   const [err, setErr] = useState('');
-  const [busy, setBusy] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    try {
-      const [a, b] = await Promise.all([
-        db().from('question_sets').select('id,title,updated_at,questions(count)').order('updated_at', { ascending: false }),
-        db().from('game_sessions').select('*').order('created_at', { ascending: false }).limit(5),
-      ]);
-      if (a.error) throw a.error; if (b.error) throw b.error;
-      setSets(a.data as SetRow[]); setSessions(b.data as Session[]);
-      if (!setId && a.data[0]) setSetId(a.data[0].id);
-    } catch (e) { setErr(thaiError(e)); }
-  }, [setId]);
+    const r = await db().from('game_sessions').select('*,teams(count)').eq('teacher_id', uid).order('created_at', { ascending: false });
+    if (r.error) setErr(thaiError(r.error)); else { setRooms(r.data as never); setErr(''); }
+  }, [uid]);
   useEffect(() => { load(); }, [load]);
 
-  async function importDefaults() {
-    setBusy('import'); setErr('');
-    try {
-      const r = await db().from('question_sets').insert({ teacher_id: uid, title: 'คลังคดีเริ่มต้น (8 คดี)' }).select('id').single();
-      if (r.error) throw r.error;
-      for (let i = 0; i < DEFAULT_CASES.length; i++) await saveQuestion(r.data.id, i, DEFAULT_CASES[i]);
-      await load(); setSetId(r.data.id);
-    } catch (e) { setErr(thaiError(e)); } finally { setBusy(''); }
+  async function create() {
+    setBusy(true); setErr('');
+    try { const s = await createRoom(uid, title.trim()); nav(`/teacher/session/${s.id}`); }
+    catch (e) { setErr(thaiError(e)); } finally { setBusy(false); }
   }
-  async function start() {
-    setBusy('create'); setErr('');
-    try { const s = await createSession(title, setId, cls); nav(`/teacher/session/${s.id}`); }
-    catch (e) { setErr(thaiError(e)); } finally { setBusy(''); }
+  async function remove(s: Session) {
+    if (!confirm(`ลบห้อง “${s.title}” พร้อมทีมและคำตอบทั้งหมด? QR ที่พิมพ์ไว้จะใช้ไม่ได้อีก และย้อนกลับไม่ได้`)) return;
+    const r = await db().from('game_sessions').delete().eq('id', s.id);
+    if (r.error) setErr(thaiError(r.error)); else load();
   }
 
   return (
-    <Page title="ศูนย์ควบคุมครู" back="/hq" right={<ConnectionBadge />}>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <p className="flex-1">สวัสดี <b>{name}</b></p>
-        <Link to="/teach" className="inline-flex min-h-[44px] items-center gap-1 rounded-lg px-3 font-semibold text-dblue hover:bg-navy/5"><Presentation size={18} aria-hidden /> โหมดครูผู้สอน</Link>
-        <Link to="/teacher/history" className="inline-flex min-h-[44px] items-center gap-1 rounded-lg px-3 font-semibold text-dblue hover:bg-navy/5"><HistoryIcon size={18} aria-hidden /> ประวัติการสอน</Link>
-        <Btn variant="ghost" onClick={() => supabase!.auth.signOut()}><LogOut size={18} aria-hidden /> ออกจากระบบ</Btn>
-      </div>
-      {err && <div className="mb-4"><ErrorBox msg={err} onRetry={load} /></div>}
-      <div className="grid gap-4 lg:grid-cols-2">
+    <Page title="กิจกรรมทีม · ห้องของฉัน" back="/hq" right={<ConnectionBadge />}>
+      <div className="mx-auto max-w-3xl space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="flex-1">สวัสดี <b>{name}</b></p>
+          <Btn variant="ghost" onClick={() => supabase!.auth.signOut()}><LogOut size={18} aria-hidden /> ออกจากระบบ</Btn>
+        </div>
+        {err && <ErrorBox msg={err} onRetry={load} />}
         <Card>
-          <h2 className="mb-3 text-xl font-bold">สร้างห้องเรียนใหม่</h2>
-          {sets && sets.length === 0 ? <Empty>ยังไม่มีชุดโจทย์ กด “นำเข้าคลังคดีเริ่มต้น” ก่อน</Empty> : (
-            <div className="space-y-3">
-              <Field label="ชื่อห้อง/คาบเรียน"><input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
-              <Field label="ห้องเรียน (เช่น ม.2/1)"><input className={inputCls} value={cls} onChange={(e) => setCls(e.target.value)} placeholder="ไม่บังคับ" /></Field>
-              <Field label="ชุดโจทย์">
-                <select className={inputCls} value={setId} onChange={(e) => setSetId(e.target.value)}>
-                  {sets?.map((s) => <option key={s.id} value={s.id}>{s.title} ({s.questions[0]?.count ?? 0} ข้อ)</option>)}
-                </select>
-              </Field>
-              <Btn className="w-full" onClick={start} disabled={!setId || busy === 'create'}><Play aria-hidden /> สร้างห้องและรหัส QR</Btn>
-            </div>
-          )}
+          <h2 className="mb-3 text-xl font-bold">สร้างห้องใหม่</h2>
+          <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); create(); }}>
+            <div className="min-w-0 flex-1"><Field label="ชื่อห้อง"><input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} placeholder="เช่น ม.2/1" required /></Field></div>
+            <Btn className="self-end" disabled={busy || !title.trim()}><Plus aria-hidden /> {busy ? 'กำลังสร้าง…' : 'สร้างห้อง'}</Btn>
+          </form>
+          <p className="mt-2 text-sm opacity-70">สร้างครั้งเดียวใช้ได้ตลอด ทีมและ QR ของห้องจะอยู่จนกว่าครูจะลบ</p>
         </Card>
         <Card>
-          <h2 className="mb-3 text-xl font-bold">ชุดโจทย์ของฉัน</h2>
-          {!sets ? <Spinner /> : (
-            <ul className="mb-3 divide-y divide-navy/10">
-              {sets.map((s) => (
-                <li key={s.id} className="flex items-center gap-2 py-2">
-                  <span className="flex-1">{s.title} <span className="text-sm opacity-60">({s.questions[0]?.count ?? 0} ข้อ)</span></span>
-                  <Link to={`/teacher/editor/${s.id}`} className="inline-flex min-h-[44px] items-center gap-1 rounded-lg px-3 font-semibold text-teal hover:bg-teal/10"><Pencil size={16} aria-hidden /> แก้ไข</Link>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Btn variant="teal" onClick={() => nav('/teacher/editor')}><Plus aria-hidden /> ชุดโจทย์ใหม่</Btn>
-            <Btn variant="navy" onClick={importDefaults} disabled={busy === 'import'}><Download aria-hidden /> {busy === 'import' ? 'กำลังนำเข้า…' : 'นำเข้าคลังคดีเริ่มต้น'}</Btn>
-          </div>
-        </Card>
-        <Card className="lg:col-span-2">
-          <h2 className="mb-3 text-xl font-bold">ห้องล่าสุด</h2>
-          {sessions.length === 0 ? <Empty>ยังไม่มีห้อง</Empty> : (
+          <h2 className="mb-3 text-xl font-bold">ห้องของฉัน</h2>
+          {!rooms ? <Spinner /> : rooms.length === 0 ? <Empty>ยังไม่มีห้อง สร้างห้องแรกด้านบน</Empty> : (
             <ul className="divide-y divide-navy/10">
-              {sessions.map((s) => (
-                <li key={s.id}><Link to={`/teacher/session/${s.id}`} className="flex min-h-[52px] items-center gap-3 py-2 hover:bg-navy/5">
-                  <span className="rounded bg-navy px-2 font-num font-bold tracking-wider text-gold">{s.room_code}</span>
-                  <span className="flex-1">{s.title}</span><span className="text-sm opacity-70">{STATUS_TH[s.status]}</span>
-                </Link></li>
+              {rooms.map((s) => (
+                <li key={s.id} className="flex items-center gap-2">
+                  <Link to={`/teacher/session/${s.id}`} className="flex min-h-[60px] flex-1 items-center gap-3 rounded-lg px-2 hover:bg-navy/5">
+                    <DoorOpen className="text-teal" aria-hidden />
+                    <span className="flex-1"><b className="text-lg">{s.title}</b><span className="block text-sm opacity-70">{s.teams[0]?.count ?? 0} ทีม · รหัส {s.room_code}</span></span>
+                  </Link>
+                  <button onClick={() => remove(s)} className="grid h-11 w-11 place-items-center rounded-full text-alert hover:bg-alert/10" aria-label={`ลบห้อง ${s.title}`}><Trash2 size={18} aria-hidden /></button>
+                </li>
               ))}
             </ul>
           )}
@@ -178,5 +139,5 @@ function Dashboard({ uid, name }: { uid: string; name: string }) {
 }
 
 export default function Teacher() {
-  return <TeacherGate title="ศูนย์ควบคุมครู">{(uid, name) => <Dashboard uid={uid} name={name} />}</TeacherGate>;
+  return <TeacherGate title="กิจกรรมทีม">{(uid, name) => <Dashboard uid={uid} name={name} />}</TeacherGate>;
 }

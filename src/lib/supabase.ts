@@ -30,7 +30,7 @@ export function thaiError(e: unknown): string {
   const msg = (e as { message?: string })?.message ?? String(e);
   const map: Record<string, string> = {
     ROOM_NOT_FOUND: 'ไม่พบห้องนี้ ตรวจสอบรหัสห้องอีกครั้ง',
-    ROOM_CLOSED: 'ห้องปิดรับทีมใหม่แล้ว แจ้งครูให้เปิดรับทีม',
+    ROOM_CLOSED: 'ไม่พบทีมนี้ในห้อง (ครูอาจลบทีมแล้ว) ขอ QR ใหม่จากครู',
     ROOM_ENDED: 'เกมในห้องนี้จบแล้ว',
     BAD_TEAM_NAME: 'ชื่อทีมต้องยาว 2–30 ตัวอักษร',
     NOT_ACTIVE: 'ขณะนี้ภารกิจยังไม่เปิดรับคำตอบ (รอครูเริ่มหรือกลับมาเล่นต่อ)',

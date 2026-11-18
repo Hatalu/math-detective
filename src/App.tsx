@@ -4,9 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { SettingsProvider, useSettings } from './lib/settings';
 import Intro from './pages/Intro';
 import HQ from './pages/HQ';
+import Example from './pages/Example';
 import SettingsPage from './pages/Settings';
-import Practice from './pages/Practice';
-import Teach from './pages/Teach';
 import Boards from './pages/Boards';
 import Board from './pages/Board';
 import PrintQR from './pages/PrintQR';
@@ -14,12 +13,6 @@ import Join from './pages/Join';
 import Play from './pages/Play';
 import Teacher from './pages/Teacher';
 import TeacherSession from './pages/TeacherSession';
-import Editor from './pages/Editor';
-import Lobby from './pages/Lobby';
-import Scoreboard from './pages/Scoreboard';
-import Gallery from './pages/Gallery';
-import ExitTicket from './pages/ExitTicket';
-import History from './pages/History';
 
 /** Last line of defence: a crash in any page shows a usable recovery screen. */
 class Boundary extends Component<{ children: ReactNode }, { err?: Error }> {
@@ -50,25 +43,16 @@ function Routed() {
           <Routes location={loc}>
             <Route path="/" element={<Intro />} />
             <Route path="/hq" element={<HQ />} />
+            <Route path="/example" element={<Example />} />
             <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/practice" element={<Practice />} />
-            <Route path="/practice/:idx" element={<Practice />} />
             <Route path="/join" element={<Join />} />
             <Route path="/join/:code" element={<Join />} />
             <Route path="/play/:sid" element={<Play />} />
-            <Route path="/teach" element={<Teach />} />
             <Route path="/boards" element={<Boards />} />
             <Route path="/print/:sid" element={<PrintQR />} />
             <Route path="/board/:code" element={<Board />} />
             <Route path="/teacher" element={<Teacher />} />
-            <Route path="/teacher/history" element={<History />} />
             <Route path="/teacher/session/:sid" element={<TeacherSession />} />
-            <Route path="/teacher/editor" element={<Editor />} />
-            <Route path="/teacher/editor/:setId" element={<Editor />} />
-            <Route path="/lobby/:sid" element={<Lobby />} />
-            <Route path="/scoreboard/:sid" element={<Scoreboard />} />
-            <Route path="/gallery/:sid" element={<Gallery />} />
-            <Route path="/exit/:sid" element={<ExitTicket />} />
             <Route path="*" element={<HQ />} />
           </Routes>
         </motion.div>

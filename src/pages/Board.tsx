@@ -6,8 +6,7 @@ import { Btn, Card, ConnectionBadge, Empty, ErrorBox, Field, Page, SetupRequired
 import { Art } from '../components/art';
 import { RoomQR } from '../components/RoomQR';
 import { useRealtime } from '../lib/api';
-import { db, ensureStudentSession, supabase, thaiError } from '../lib/supabase';
-import { uploadWithProgress } from './Gallery';
+import { db, ensureStudentSession, supabase, SUPABASE_ANON_KEY, SUPABASE_URL, thaiError } from '../lib/supabase';
 
 interface BoardRow { id: string; code: string; title: string; teacher_id: string }
 interface Post { id: string; user_id: string; author: string; caption: string; image_path: string; hidden: boolean; created_at: string }
@@ -16,6 +15,21 @@ const TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX = 5 * 1024 * 1024;
 const PINS = ['ui-pin-red.webp', 'ui-pin-teal.webp', 'ui-pin-gold.webp'];
 const NAME_KEY = 'md-board-name'; // per-device convenience only
+
+export function uploadWithProgress(path: string, file: File, token: string, onProgress: (p: number) => void, bucket = 'board') {
+  return new Promise<void>((resolve, reject) => {
+    const x = new XMLHttpRequest();
+    x.open('POST', `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`);
+    x.setRequestHeader('Authorization', `Bearer ${token}`);
+    x.setRequestHeader('apikey', SUPABASE_ANON_KEY);
+    x.setRequestHeader('x-upsert', 'false');
+    x.setRequestHeader('Content-Type', file.type);
+    x.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
+    x.onload = () => (x.status < 300 ? resolve() : reject(new Error(`อัปโหลดไม่สำเร็จ (${x.status}) ${x.responseText.slice(0, 120)}`)));
+    x.onerror = () => reject(new Error('เครือข่ายขัดข้องระหว่างอัปโหลด ลองอีกครั้ง'));
+    x.send(file);
+  });
+}
 
 /** Standalone showcase board: #/board/<code>. Students scan the QR, post a worksheet photo, heart and comment. */
 export default function Board() {
@@ -116,7 +130,7 @@ export default function Board() {
                       : <div className="grid aspect-[4/3] place-items-center bg-navy/10">กำลังโหลดภาพ…</div>}
                   </button>
                   <div className="mt-2 font-bold">{p.author}{p.hidden && <span className="ml-2 rounded bg-navy/15 px-1 text-xs">ซ่อนอยู่</span>}</div>
-                  {p.caption && <p className="line-clamp-2 text-sm">{p.caption}</p>}
+                  {p.caption && <p className="line-clamp-2 text-sm">สมาชิก: {p.caption}</p>}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     {heart(p)}
                     <button onClick={() => setBig(p)} className="inline-flex min-h-[44px] items-center gap-1 rounded-full bg-navy/10 px-3 font-bold" aria-label="ความคิดเห็น"><MessageCircle size={18} aria-hidden /> {cmtOf(p.id).length}</button>
@@ -171,7 +185,7 @@ function PostForm({ boardId, name, setName, onDone }: { boardId: string; name: s
     setFile(f); setPreview(URL.createObjectURL(f));
   }
   async function send() {
-    if (!file || !name.trim()) return;
+    if (!file || !name.trim() || !caption.trim()) return;
     setErr(''); setProgress(0);
     const ext = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }[file.type];
     const path = `${boardId}/${crypto.randomUUID()}.${ext}`;
@@ -185,16 +199,16 @@ function PostForm({ boardId, name, setName, onDone }: { boardId: string; name: s
   }
   return (
     <Card className="space-y-3">
-      <h2 className="text-lg font-bold">ส่งรูปใบงานของฉัน</h2>
-      <Field label="ชื่อเล่น / เลขที่ (แสดงบนบอร์ด)"><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="เช่น 12 มิว" /></Field>
-      <Field label="รูปใบงาน (ถ่ายรูปได้เลย ไม่เกิน 5 MB)">
+      <h2 className="text-lg font-bold">ส่งรูปใบงานของทีม</h2>
+      <Field label="ชื่อทีม"><input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} maxLength={40} placeholder="เช่น ทีมเหยี่ยวดำ" /></Field>
+      <Field label="ชื่อสมาชิกในทีม"><textarea className={inputCls} rows={3} maxLength={300} value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="เช่น 3 ต้นกล้า, 12 มิว, 25 ภูมิ" /></Field>
+      <Field label="รูปใบงานของทีม (ถ่ายรูปได้เลย ไม่เกิน 5 MB)">
         <input type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm file:mr-3 file:min-h-[44px] file:rounded-lg file:border-0 file:bg-dblue file:px-4 file:text-cream" onChange={(e) => pick(e.target.files?.[0])} />
       </Field>
       {preview && <img src={preview} alt="ตัวอย่างภาพก่อนส่ง" className="max-h-56 w-full rounded object-contain ring-1 ring-navy/10" />}
-      <Field label="อธิบายสั้น ๆ (ไม่บังคับ)"><textarea className={inputCls} rows={2} maxLength={300} value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="เช่น ข้อมูลมีค่าผิดปกติ จึงใช้มัธยฐาน" /></Field>
       {progress !== null && <div className="h-3 overflow-hidden rounded-full bg-navy/10" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><div className="h-full bg-teal transition-all" style={{ width: `${progress}%` }} /></div>}
-      <Btn className="w-full" onClick={send} disabled={!file || !name.trim() || progress !== null}><Upload size={18} aria-hidden /> {progress !== null ? `กำลังอัปโหลด ${progress}%` : 'ติดผลงานบนบอร์ด'}</Btn>
-      {!name.trim() && file && <p className="text-sm text-alert">ใส่ชื่อเล่นหรือเลขที่ก่อนส่ง</p>}
+      <Btn className="w-full" onClick={send} disabled={!file || !name.trim() || !caption.trim() || progress !== null}><Upload size={18} aria-hidden /> {progress !== null ? `กำลังอัปโหลด ${progress}%` : 'ติดผลงานบนบอร์ด'}</Btn>
+      {file && (!name.trim() || !caption.trim()) && <p className="text-sm text-alert">ใส่ชื่อทีมและชื่อสมาชิกก่อนส่ง</p>}
       {ok && <p className="rounded-lg bg-teal/15 p-2 text-teal">ติดผลงานบนบอร์ดแล้ว!</p>}
       {err && <ErrorBox msg={err} onRetry={file ? send : undefined} />}
     </Card>
@@ -214,7 +228,7 @@ function PostView({ p, url, heart, comments, me, owner, author, needName, onClos
         <button autoFocus onClick={onClose} className="mb-2 inline-flex min-h-[44px] items-center gap-1 font-semibold"><X aria-hidden /> ปิด</button>
         {url && <img src={url} alt={`ผลงานของ ${p.author}`} className="max-h-[60vh] w-full object-contain" />}
         <h3 className="mt-3 text-xl font-bold">{p.author}</h3>
-        {p.caption && <p className="mt-1">{p.caption}</p>}
+        {p.caption && <p className="mt-1">สมาชิก: {p.caption}</p>}
         <div className="mt-2">{heart}</div>
         <section className="mt-4 border-t border-navy/10 pt-3" aria-label="ความคิดเห็น">
           <h4 className="mb-2 font-bold">ความคิดเห็น ({comments.length})</h4>

@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { db, supabase, thaiError } from './supabase';
-import { answerKey, type CaseQuestion, type QuestionContent } from './cases';
-import { fillTemplate, type StudentAnswer } from './math';
-import type { Feedback } from '../components/CaseResult';
+import { answerKey, DEFAULT_CASES, type CaseQuestion, type QuestionContent } from './cases';
+import { fillTemplate, type Measure, type StudentAnswer } from './math';
+
+export interface Feedback {
+  correct: boolean;
+  scores: { accuracy: number; method: number; reasoning: number; communication: number; speed: number; penalty: number; total: number };
+  measure: Measure; values: number[]; noMode: boolean;
+  reasoning: string; misconceptions: string; limitations: string;
+}
 
 export type Status = 'waiting' | 'active' | 'paused' | 'reviewing' | 'completed';
 export const STATUS_TH: Record<Status, string> = { waiting: 'รอเริ่มเกม', active: 'กำลังสืบสวน', paused: 'พักเกม', reviewing: 'เฉลย/ทบทวน', completed: 'จบเกม' };
@@ -113,4 +119,34 @@ export function useRealtime(key: string | null, watches: Watch[], onChange: () =
     return () => { removeEventListener('online', onOnline); supabase!.removeChannel(ch); };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   return status;
+}
+
+/* ---------- one-lesson rooms (teacher) ---------- */
+const LESSON_SET = 'คดีปริศนาค่ากลาง (CASE 01–03)';
+
+/** The teacher's copy of the 3 lesson cases, created once and reused by every room. */
+export async function ensureLessonSet(uid: string): Promise<string> {
+  const c = db();
+  const found = ok<{ id: string }[]>(await c.from('question_sets').select('id').eq('teacher_id', uid).eq('title', LESSON_SET).limit(1));
+  if (found[0]) return found[0].id;
+  const r = ok<{ id: string }>(await c.from('question_sets').insert({ teacher_id: uid, title: LESSON_SET }).select('id').single());
+  for (let i = 0; i < DEFAULT_CASES.length; i++) await saveQuestion(r.id, i, DEFAULT_CASES[i]);
+  return r.id;
+}
+
+/** Room = a game session that never ends: no timer, no hints, teams added only by the teacher. */
+export async function createRoom(uid: string, title: string) {
+  const s = await createSession(title, await ensureLessonSet(uid), '');
+  return updateSession(s.id, { time_limit_sec: 0, hints_enabled: false, show_scores: false, join_open: false });
+}
+
+/** teams has no insert policy; join_room creates the team (the teacher's device joins it as a side effect). */
+export async function addTeam(g: Session, name: string) {
+  await updateSession(g.id, { join_open: true });
+  try { await joinRoom(g.room_code, name); } finally { await updateSession(g.id, { join_open: false }); } // closed again so a deleted team's QR cannot recreate it
+}
+
+export async function resetRoom(sid: string) {
+  ok(await db().from('submissions').delete().eq('session_id', sid));
+  return updateSession(sid, { status: 'waiting', current_index: 0, reveal_answer: false, question_started_at: null });
 }
