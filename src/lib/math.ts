@@ -87,7 +87,7 @@ export function generateDataset({ count, min, max, seed = Date.now(), modeShape 
 }
 
 export interface ExpectedAnswer { measure: Measure; values: number[]; noMode: boolean }
-export interface StudentAnswer { measure: Measure | null; measures?: Measure[]; values: number[]; noMode: boolean; markedEvidence?: number }
+export interface StudentAnswer { measure: Measure | null; measures?: Measure[]; value?: string; values: number[]; noMode: boolean; markedEvidence?: number }
 
 export function expectedFor(measure: Measure, data: readonly number[]): ExpectedAnswer {
   if (measure === 'mean') return { measure, values: [calculateMean(data)], noMode: false };

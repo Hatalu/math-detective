@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { CheckCircle2, ChevronRight, Eye, EyeOff, Lightbulb, Play, Plus, Printer, RotateCcw, Shuffle, Trash2 } from 'lucide-react';
 import { Btn, Card, ConnectionBadge, Empty, ErrorBox, Page, Spinner, inputCls } from '../components/ui';
 import { Art } from '../components/art';
@@ -23,6 +23,7 @@ function Control({ sid }: { sid: string }) {
   const [open, setOpen] = useState(false);       // answers of all teams visible on the projector
   const [picker, setPicker] = useState(false);
   const [picked, setPicked] = useState('');
+  const [detail, setDetail] = useState<Team | null>(null); // team whose answers for every case are shown
   const [scanned, setScanned] = useState<string[]>([]); // team ids with a student device joined
 
   const load = useCallback(async () => {
@@ -152,7 +153,9 @@ function Control({ sid }: { sid: string }) {
                         <p className={`text-xl font-black ${revealed ? (s.is_correct ? 'text-teal' : 'text-alert') : ''}`}>
                           {(s.answer.measures ?? (s.answer.measure ? [s.answer.measure] : [])).map((x) => MEASURE_TH[x]).join(' + ') || '-'} {revealed && (s.is_correct ? '✓' : '✗')}
                         </p>
+                        {s.answer.value && <p className="mt-1 text-lg font-bold">คำตอบ: {s.answer.value}</p>}
                         <p className="mt-1 whitespace-pre-wrap">{s.reasoning || <i className="opacity-60">ไม่ได้ใส่เหตุผล</i>}</p>
+                        <button onClick={() => setDetail(t)} className="mt-2 text-sm font-semibold text-dblue underline">ดูคำตอบทุก CASE ของทีมนี้</button>
                       </div>
                     )}
                     {s && !show && <button onClick={() => setPicked(t.id)} className="mt-2 text-sm font-semibold text-dblue underline">เปิดคำตอบทีมนี้</button>}
@@ -169,6 +172,31 @@ function Control({ sid }: { sid: string }) {
       </div>
 
       <AnimatePresence>
+        {detail && (
+          <motion.div className="fixed inset-0 z-50 grid place-items-center bg-navy/85 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-modal="true" aria-label={`คำตอบของ${detail.name}`} onClick={() => setDetail(null)}>
+            <div className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-cream p-5 text-navy shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="mb-3 flex items-center"><h2 className="flex-1 text-2xl font-black">{detail.name} · คำตอบทุก CASE</h2><Btn variant="ghost" className="!text-navy" onClick={() => setDetail(null)}>ปิด</Btn></div>
+              <div className="space-y-3">
+                {qs.map((x, i) => {
+                  const a = subs.find((y) => y.team_id === detail.id && y.question_id === x.id);
+                  const marked = started && (i < g.current_index || (i === g.current_index && revealed)); // never show right/wrong before the reveal
+                  return (
+                    <div key={x.id} className="rounded-2xl bg-white p-3 ring-1 ring-navy/10">
+                      <p className="font-num text-sm font-bold tracking-widest text-alert">{x.content.code} · {x.content.title}</p>
+                      {!a ? <p className="opacity-60">ยังไม่ได้ส่ง</p> : (
+                        <>
+                          <p className="text-xl font-black">{(a.answer.measures ?? (a.answer.measure ? [a.answer.measure] : [])).map((m) => MEASURE_TH[m]).join(' + ') || '-'} {marked && (a.is_correct ? '✓' : '✗')}</p>
+                          {a.answer.value && <p className="text-lg font-bold">คำตอบ: {a.answer.value}</p>}
+                          <p className="whitespace-pre-wrap">{a.reasoning || <i className="opacity-60">ไม่ได้ใส่เหตุผล</i>}</p>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
         {picker && <GroupPicker names={pool.map((t) => t.name)} onPick={(i) => setPicked(pool[i].id)} onClose={() => setPicker(false)} />}
       </AnimatePresence>
     </Page>
