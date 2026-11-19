@@ -34,7 +34,7 @@ export function SceneHunt({ scene, draftKey, onDone }: { scene: CaseScene; draft
       <div className="shrink-0 bg-navy px-3 py-2 shadow-xl">
         <div className="mb-1.5 flex items-center gap-2">
           <Hand className="shrink-0 text-gold" size={20} aria-hidden />
-          <p className="min-w-0 flex-1 font-bold leading-tight text-gold sm:text-lg">ภารกิจ: หาของเหล่านี้ในฉากให้ครบ {items.length} ชิ้น</p>
+          <p className="min-w-0 flex-1 font-bold leading-tight text-gold sm:text-lg">ภารกิจ: หาของเหล่านี้ในฉากให้ครบ {items.length} ชิ้น<span className="block text-xs font-normal text-cream/80 sm:hidden">↔ เลื่อนฉากซ้าย-ขวาเพื่อหาให้ครบ</span></p>
           <span className="shrink-0 font-num text-2xl font-black text-gold sm:text-3xl" aria-live="polite">{found.length}/{items.length}</span>
         </div>
         <ul className="flex gap-1.5 overflow-x-auto sm:justify-center sm:gap-2" aria-label="รายการของที่ต้องหา">
@@ -56,8 +56,9 @@ export function SceneHunt({ scene, draftKey, onDone }: { scene: CaseScene; draft
       </div>
 
       {/* scene keeps the art's 16:9 ratio so items stay on the spots they were placed on */}
-      <div className="grid min-h-0 flex-1 place-items-center overflow-hidden">
-        <div className="relative aspect-video max-h-full w-full max-w-full [container-type:inline-size]" style={{ maxWidth: 'calc((100dvh - 15rem) * 16 / 9)' }}>
+      {/* phones (portrait): scene is as tall as the area and wider than the screen, so students swipe left/right */}
+      <div className="flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden sm:overflow-hidden">
+        <div className="relative m-auto aspect-video max-sm:h-full max-sm:shrink-0 sm:max-h-full sm:w-full sm:max-w-[calc((100dvh-15rem)*16/9)] [container-type:inline-size]">
           <Art file={scene.bg} className="absolute inset-0 h-full w-full object-cover" fallback={<div className="absolute inset-0 bg-gradient-to-br from-dblue to-navy" />} />
           {items.map((it, i) => {
             const got = found.includes(i);

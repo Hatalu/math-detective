@@ -23,16 +23,21 @@ function Control({ sid }: { sid: string }) {
   const [open, setOpen] = useState(false);       // answers of all teams visible on the projector
   const [picker, setPicker] = useState(false);
   const [picked, setPicked] = useState('');
+  const [scanned, setScanned] = useState<string[]>([]); // team ids with a student device joined
 
   const load = useCallback(async () => {
     try {
       const s = await getSession(sid); setG(s);
       if (!qs.length && s.question_set_id) setQs(await getQuestions(s.question_set_id));
-      const [t, b] = await Promise.all([
+      const [t, b, m, me] = await Promise.all([
         db().from('teams').select('*').eq('session_id', sid).order('created_at'),
         db().from('submissions').select('*').eq('session_id', sid),
+        db().from('team_members').select('team_id,user_id'),
+        db().auth.getUser(),
       ]);
-      if (t.error) throw t.error; if (b.error) throw b.error;
+      if (t.error) throw t.error; if (b.error) throw b.error; if (m.error) throw m.error;
+      // addTeam() joins the teacher's own device to the newest team, so the teacher's uid is not a scan
+      setScanned((m.data as { team_id: string; user_id: string }[]).filter((x) => x.user_id !== me.data.user?.id).map((x) => x.team_id));
       setTeams(t.data as Team[]); setSubs(b.data as Submission[]); setErr('');
     } catch (e) { setErr(thaiError(e)); }
   }, [sid, qs.length]);
@@ -40,6 +45,8 @@ function Control({ sid }: { sid: string }) {
   const rt = useRealtime(`teacher-${sid}`, [
     { table: 'game_sessions', filter: `id=eq.${sid}` }, { table: 'teams', filter: `session_id=eq.${sid}` }, { table: 'submissions', filter: `session_id=eq.${sid}` },
   ], load);
+  // team_members is not in the realtime publication (no SQL access needed this way), so scans are polled
+  useEffect(() => { const i = setInterval(load, 4000); return () => clearInterval(i); }, [load]);
 
   async function act(f: () => Promise<unknown>) {
     setBusy(true); setErr('');
@@ -156,7 +163,7 @@ function Control({ sid }: { sid: string }) {
           )}
         </div>
 
-        <TeamsPanel g={g} teams={teams} busy={busy} name={name} setName={setName}
+        <TeamsPanel g={g} teams={teams} scanned={scanned} busy={busy} name={name} setName={setName}
           onAdd={() => act(async () => { await addTeam(g, name.trim()); setName(''); })}
           onDelete={(t) => confirm(`ลบทีม “${t.name}”? QR ของทีมนี้จะใช้ไม่ได้อีก`) && act(async () => { const r = await db().from('teams').delete().eq('id', t.id); if (r.error) throw r.error; })} />
       </div>
@@ -168,8 +175,8 @@ function Control({ sid }: { sid: string }) {
   );
 }
 
-function TeamsPanel({ g, teams, busy, name, setName, onAdd, onDelete }: {
-  g: Session; teams: Team[]; busy: boolean; name: string; setName: (s: string) => void; onAdd: () => void; onDelete: (t: Team) => void;
+function TeamsPanel({ g, teams, scanned, busy, name, setName, onAdd, onDelete }: {
+  g: Session; teams: Team[]; scanned: string[]; busy: boolean; name: string; setName: (s: string) => void; onAdd: () => void; onDelete: (t: Team) => void;
 }) {
   const dup = teams.some((t) => t.name.toLowerCase() === name.trim().toLowerCase());
   return (
@@ -184,7 +191,9 @@ function TeamsPanel({ g, teams, busy, name, setName, onAdd, onDelete }: {
         <ul className="divide-y divide-navy/10">
           {teams.map((t, i) => (
             <li key={t.id} className="flex items-center gap-2 py-1.5">
-              <span className="w-6 font-num opacity-60">{i + 1}</span><span className="flex-1 font-semibold">{t.name}</span>
+              <span className="w-6 font-num opacity-60">{i + 1}</span>
+              <span className={`h-3.5 w-3.5 shrink-0 rounded-full ${scanned.includes(t.id) ? 'bg-green-500 shadow-[0_0_6px_2px_rgba(34,197,94,.6)]' : 'bg-gray-400'}`} role="img" aria-label={scanned.includes(t.id) ? 'สแกนแล้ว' : 'ยังไม่สแกน'} />
+              <span className="flex-1 font-semibold">{t.name}</span>
               <button onClick={() => onDelete(t)} className="grid h-10 w-10 place-items-center rounded-full text-alert hover:bg-alert/10" aria-label={`ลบทีม ${t.name}`}><Trash2 size={18} aria-hidden /></button>
             </li>
           ))}
