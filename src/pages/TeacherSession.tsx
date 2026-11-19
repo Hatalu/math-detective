@@ -127,7 +127,7 @@ function Control({ sid }: { sid: string }) {
               {revealed && (
                 <div className="rounded-2xl bg-gold/25 p-4 ring-2 ring-gold">
                   <p className="text-sm font-bold tracking-widest">เฉลย</p>
-                  <p className="flex items-center gap-2 text-3xl font-black"><Art file={`ui-icon-${c.measure}.webp`} className="h-12 w-12 object-contain" />{MEASURE_TH[c.measure]}</p>
+                  <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-3xl font-black">{scene.answers.map((k) => <span key={k} className="flex items-center gap-2"><Art file={`ui-icon-${k}.webp`} className="h-12 w-12 object-contain" />{MEASURE_TH[k]}</span>)}</p>
                   <p className="mt-1 text-lg">{c.reasoning}</p>
                   <p className="mt-2"><b>อธิบายเพิ่มเติม:</b> {scene.explain}</p>
                 </div>
@@ -150,7 +150,7 @@ function Control({ sid }: { sid: string }) {
                     {show && (
                       <div className="mt-2">
                         <p className={`text-xl font-black ${revealed ? (s.is_correct ? 'text-teal' : 'text-alert') : ''}`}>
-                          {s.answer.measure ? MEASURE_TH[s.answer.measure] : '-'} {revealed && (s.is_correct ? '✓' : '✗')}
+                          {(s.answer.measures ?? (s.answer.measure ? [s.answer.measure] : [])).map((x) => MEASURE_TH[x]).join(' + ') || '-'} {revealed && (s.is_correct ? '✓' : '✗')}
                         </p>
                         <p className="mt-1 whitespace-pre-wrap">{s.reasoning || <i className="opacity-60">ไม่ได้ใส่เหตุผล</i>}</p>
                       </div>

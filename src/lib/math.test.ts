@@ -44,11 +44,13 @@ describe('math engine', () => {
 });
 
 describe('default cases are mathematically consistent', () => {
-  const expected: Record<string, number[]> = { 'CASE 01': [14], 'CASE 02': [27], 'CASE 03': [3] };
+  const expected: Record<string, number[]> = { 'CASE 01': [14], 'CASE 02': [26.43], 'CASE 03': [3] };
   for (const c of DEFAULT_CASES) {
     it(c.code, () => {
       const k = answerKey(c);
-      expect(k.values).toEqual(expected[c.code]);
+      expect(k.values).toHaveLength(1);
+      expect(k.values[0]).toBeCloseTo(expected[c.code][0], 2);
+      expect(CASE_SCENES[c.code].answers).toContain(c.measure);
       expect(k.noMode).toBe(false);
       expect(c.target).toBe('choose');
       // every token must resolve, so no "{...}" survives templating

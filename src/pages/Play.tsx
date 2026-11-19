@@ -60,9 +60,12 @@ export default function Play() {
   const scene = c && CASE_SCENES[c.code];
   const header = <div className="flex items-center gap-2"><span className="font-semibold">{team?.team_name}</span><ConnectionBadge realtime={rt} /></div>;
 
-  async function submit(measure: Measure, reasoning: string) {
+  async function submit(measures: Measure[], reasoning: string) {
     if (!navigator.onLine) throw new Error('ออฟไลน์อยู่ คำตอบยังไม่ถูกส่ง เมื่ออินเทอร์เน็ตกลับมาให้กดส่งอีกครั้ง');
-    setSub(await submitAnswer(sid, { measure, values: [], noMode: false }, reasoning, clientId(`cid:${sid}:${q!.id}:${g!.question_started_at}`)));
+    // The server grades one `measure`. Right only if the ticked set equals the case's answer set: send the key measure then, else a wrong tick.
+    const right = scene!.answers.length === measures.length && scene!.answers.every((a) => measures.includes(a));
+    const measure = right ? c!.measure : measures.find((x) => x !== c!.measure) ?? measures[0];
+    setSub(await submitAnswer(sid, { measure, measures, values: [], noMode: false }, reasoning, clientId(`cid:${sid}:${q!.id}:${g!.question_started_at}`)));
   }
 
   return (
@@ -85,7 +88,7 @@ export default function Play() {
 }
 
 /** One case for a team: hunt the clues in the scene, then choose the measure and give a reason. */
-function CaseFlow({ c, scene, draftKey, onSubmit }: { c: CaseQuestion; scene: CaseScene; draftKey: string; onSubmit: (m: Measure, r: string) => Promise<void> }) {
+function CaseFlow({ c, scene, draftKey, onSubmit }: { c: CaseQuestion; scene: CaseScene; draftKey: string; onSubmit: (m: Measure[], r: string) => Promise<void> }) {
   const pk = draftKey + ':phase';
   const [phase, setPhase] = useState<'brief' | 'hunt' | 'answer'>(() => (sessionStorage.getItem(pk) as 'hunt' | 'answer' | null) ?? 'brief');
   useEffect(() => { try { sessionStorage.setItem(pk, phase); } catch { /* not kept */ } }, [pk, phase]);
@@ -108,18 +111,18 @@ function CaseFlow({ c, scene, draftKey, onSubmit }: { c: CaseQuestion; scene: Ca
   return <AnswerForm c={c} scene={scene} draftKey={draftKey} onSubmit={onSubmit} />;
 }
 
-function AnswerForm({ c, scene, draftKey, onSubmit }: { c: CaseQuestion; scene: CaseScene; draftKey: string; onSubmit: (m: Measure, r: string) => Promise<void> }) {
+function AnswerForm({ c, scene, draftKey, onSubmit }: { c: CaseQuestion; scene: CaseScene; draftKey: string; onSubmit: (m: Measure[], r: string) => Promise<void> }) {
   const { s } = useSettings();
-  const [m, setM] = useState<Measure | null>(() => (sessionStorage.getItem(draftKey + ':m') as Measure | null));
+  const [m, setM] = useState<Measure[]>(() => { try { return JSON.parse(sessionStorage.getItem(draftKey + ':m') ?? '[]'); } catch { return []; } });
   const [why, setWhy] = useState(() => sessionStorage.getItem(draftKey + ':why') ?? '');
   const [ask, setAsk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  useEffect(() => { try { if (m) sessionStorage.setItem(draftKey + ':m', m); sessionStorage.setItem(draftKey + ':why', why); } catch { /* not kept */ } }, [draftKey, m, why]);
+  useEffect(() => { try { sessionStorage.setItem(draftKey + ':m', JSON.stringify(m)); sessionStorage.setItem(draftKey + ':why', why); } catch { /* not kept */ } }, [draftKey, m, why]);
 
   async function send() {
     setBusy(true); setErr('');
-    try { await onSubmit(m!, why.trim()); sfx('stamp', s.muted); } catch (e) { setErr(thaiError(e)); setAsk(false); } finally { setBusy(false); }
+    try { await onSubmit(m, why.trim()); sfx('stamp', s.muted); } catch (e) { setErr(thaiError(e)); setAsk(false); } finally { setBusy(false); }
   }
 
   return (
@@ -133,10 +136,11 @@ function AnswerForm({ c, scene, draftKey, onSubmit }: { c: CaseQuestion; scene: 
         </div>
 
         <h2 className="text-center text-2xl font-black sm:text-3xl">{c.prompt}</h2>
-        <div className="grid grid-cols-3 gap-2 sm:gap-4" role="radiogroup" aria-label="เลือกค่ากลาง">
+        <p className="-mt-2 text-center text-lg font-semibold text-dblue">เลือกได้มากกว่า 1 คำตอบ</p>
+        <div className="grid grid-cols-3 gap-2 sm:gap-4" role="group" aria-label="เลือกค่ากลาง">
           {MEASURES.map((k) => (
-            <button key={k} role="radio" aria-checked={m === k} onClick={() => { setM(k); sfx('click', s.muted); }}
-              className={`flex flex-col items-center gap-1 rounded-2xl border-4 p-3 text-lg font-black transition sm:p-5 sm:text-2xl ${m === k ? 'scale-105 border-gold bg-gold text-navy shadow-[0_6px_0_#b5740a]' : 'border-navy/15 bg-white text-navy hover:border-gold'}`}>
+            <button key={k} role="checkbox" aria-checked={m.includes(k)} onClick={() => { setM((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k])); sfx('click', s.muted); }}
+              className={`flex flex-col items-center gap-1 rounded-2xl border-4 p-3 text-lg font-black transition sm:p-5 sm:text-2xl ${m.includes(k) ? 'scale-105 border-gold bg-gold text-navy shadow-[0_6px_0_#b5740a]' : 'border-navy/15 bg-white text-navy hover:border-gold'}`}>
               <Art file={`ui-icon-${k}.webp`} className="h-14 w-14 object-contain sm:h-20 sm:w-20" />
               {MEASURE_TH[k]}
             </button>
@@ -149,8 +153,8 @@ function AnswerForm({ c, scene, draftKey, onSubmit }: { c: CaseQuestion; scene: 
             value={why} onChange={(e) => setWhy(e.target.value)} placeholder="ทำไมทีมเราจึงเลือกค่ากลางนี้" />
         </label>
         {err && <ErrorBox msg={err} />}
-        <Btn className="w-full !min-h-[64px] text-2xl" disabled={!m || !why.trim() || busy} onClick={() => setAsk(true)}><Send aria-hidden /> ส่งคำตอบ</Btn>
-        {(!m || !why.trim()) && <p className="text-center opacity-70">เลือกค่ากลางและเขียนเหตุผลก่อนส่ง</p>}
+        <Btn className="w-full !min-h-[64px] text-2xl" disabled={!m.length || !why.trim() || busy} onClick={() => setAsk(true)}><Send aria-hidden /> ส่งคำตอบ</Btn>
+        {(!m.length || !why.trim()) && <p className="text-center opacity-70">เลือกค่ากลางและเขียนเหตุผลก่อนส่ง</p>}
       </div>
 
       <AnimatePresence>
@@ -158,7 +162,7 @@ function AnswerForm({ c, scene, draftKey, onSubmit }: { c: CaseQuestion; scene: 
           <motion.div className="fixed inset-0 z-50 grid place-items-center bg-navy/80 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="alertdialog" aria-modal="true" aria-labelledby="confirm-title">
             <motion.div initial={{ scale: 0.85 }} animate={{ scale: 1 }} className="w-full max-w-md rounded-3xl bg-cream p-6 text-center text-navy shadow-2xl ring-4 ring-alert">
               <h2 id="confirm-title" className="text-2xl font-black text-alert">ส่งคำตอบได้ครั้งเดียวนะ!</h2>
-              <p className="mt-2 text-lg">ทีมเลือก <b>{m && MEASURE_TH[m]}</b><br />ส่งแล้วแก้ไขไม่ได้ ยืนยันการส่งไหม?</p>
+              <p className="mt-2 text-lg">ทีมเลือก <b>{m.map((x) => MEASURE_TH[x]).join(' และ ')}</b><br />ส่งแล้วแก้ไขไม่ได้ ยืนยันการส่งไหม?</p>
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <Btn variant="ghost" className="!text-navy" onClick={() => setAsk(false)} disabled={busy}>ยกเลิกการส่ง</Btn>
                 <Btn variant="teal" onClick={send} disabled={busy}>{busy ? 'กำลังส่ง…' : 'ยืนยัน'}</Btn>
@@ -172,13 +176,13 @@ function AnswerForm({ c, scene, draftKey, onSubmit }: { c: CaseQuestion; scene: 
 }
 
 function Result({ c, scene, sub, reveal }: { c: CaseQuestion; scene: CaseScene; sub: Submission | null; reveal: Reveal | null }) {
-  const mine = sub?.answer.measure;
+  const mine = sub ? (sub.answer.measures ?? (sub.answer.measure ? [sub.answer.measure] : [])) : [];
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       {sub && (
         <Card className="text-center">
           <p className="text-sm font-bold tracking-widest opacity-70">คำตอบของทีม</p>
-          <p className="text-3xl font-black">{mine ? MEASURE_TH[mine] : '-'}</p>
+          <p className="text-3xl font-black">{mine.map((x) => MEASURE_TH[x]).join(' + ') || '-'}</p>
           <p className="mt-1 whitespace-pre-wrap">{sub.reasoning}</p>
         </Card>
       )}
@@ -196,7 +200,7 @@ function Result({ c, scene, sub, reveal }: { c: CaseQuestion; scene: CaseScene; 
             : <p className="flex items-center justify-center gap-2 text-3xl font-black"><XCircle size={36} aria-hidden /> ยังไม่ถูก ลองฟังครูอธิบาย</p>)}
           {!sub && <p className="text-xl font-bold">ทีมไม่ได้ส่งคำตอบในคดีนี้</p>}
           <p className="mt-3 text-sm font-bold tracking-widest opacity-80">เฉลย</p>
-          <p className="flex items-center justify-center gap-2 text-3xl font-black"><Art file={`ui-icon-${reveal.measure}.webp`} className="h-12 w-12 object-contain" />{MEASURE_TH[reveal.measure]}</p>
+          <p className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-3xl font-black">{scene.answers.map((k) => <span key={k} className="flex items-center gap-2"><Art file={`ui-icon-${k}.webp`} className="h-12 w-12 object-contain" />{MEASURE_TH[k]}</span>)}</p>
           <p className="mt-2 text-lg">{reveal.reasoning || c.reasoning}</p>
           <p className="mt-2 opacity-90">{scene.explain}</p>
         </motion.div>
